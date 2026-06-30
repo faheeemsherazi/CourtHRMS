@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from court_hrms.database.db import Base
+from court_hrms.utils.time_utils import utc_now
 
 
 class ServiceRecord(Base):
@@ -21,11 +20,11 @@ class ServiceRecord(Base):
     date_current_promotion = Column(Date)
     selection_merit_number = Column(Integer)
     remarks = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
     updated_at = Column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=utc_now,
+        onupdate=utc_now,
         nullable=False,
     )
 
@@ -46,4 +45,3 @@ class ServiceRecord(Base):
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
-

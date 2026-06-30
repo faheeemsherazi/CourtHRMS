@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from court_hrms.database.db import Base
+from court_hrms.utils.time_utils import utc_now
 
 
 class PostingTransfer(Base):
@@ -19,7 +18,7 @@ class PostingTransfer(Base):
     transfer_reason = Column(Text)
     is_current = Column(Boolean, default=True, nullable=False, index=True)
     remarks = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     staff = relationship("StaffProfile", back_populates="postings_transfers")
 
@@ -35,4 +34,3 @@ class PostingTransfer(Base):
             "remarks": self.remarks,
             "created_at": self.created_at,
         }
-

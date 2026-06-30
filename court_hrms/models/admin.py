@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import Column, DateTime, Integer, String
 
 from court_hrms.database.db import Base
+from court_hrms.utils.time_utils import utc_now
 
 
 class Admin(Base):
@@ -14,7 +13,7 @@ class Admin(Base):
     username = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
     full_name = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     def to_dict(self) -> dict:
         return {
@@ -23,4 +22,3 @@ class Admin(Base):
             "full_name": self.full_name,
             "created_at": self.created_at,
         }
-

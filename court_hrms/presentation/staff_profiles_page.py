@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from PySide6.QtCore import QDate, Qt
+from PySide6.QtCore import QDate, QRegularExpression, Qt
+from PySide6.QtGui import QRegularExpressionValidator
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -85,6 +86,9 @@ class StaffProfilesPage(QWidget):
         self.father_name_input = QLineEdit()
         self.cnic_input = QLineEdit()
         self.cnic_input.setMaxLength(13)
+        self.cnic_input.setValidator(
+            QRegularExpressionValidator(QRegularExpression(r"\d{0,13}"), self.cnic_input)
+        )
         self.dob_input = QDateEdit()
         self.dob_input.setCalendarPopup(True)
         self.dob_input.setDisplayFormat("yyyy-MM-dd")
@@ -100,8 +104,19 @@ class StaffProfilesPage(QWidget):
         self.district_input = QLineEdit()
         self.tehsil_input = QLineEdit()
         self.mobile_number_input = QLineEdit()
+        self.mobile_number_input.setMaxLength(11)
+        self.mobile_number_input.setValidator(
+            QRegularExpressionValidator(QRegularExpression(r"\d{0,11}"), self.mobile_number_input)
+        )
         self.email_input = QLineEdit()
         self.emergency_contact_input = QLineEdit()
+        self.emergency_contact_input.setMaxLength(17)
+        self.emergency_contact_input.setValidator(
+            QRegularExpressionValidator(
+                QRegularExpression(r"\d{0,17}"),
+                self.emergency_contact_input,
+            )
+        )
         self.qualification_input = QLineEdit()
         self.retirement_preview = QLineEdit()
         self.retirement_preview.setReadOnly(True)

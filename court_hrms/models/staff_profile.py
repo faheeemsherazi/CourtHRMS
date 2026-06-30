@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import Column, Date, DateTime, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from court_hrms.database.db import Base
+from court_hrms.utils.time_utils import utc_now
 
 
 class StaffProfile(Base):
@@ -30,11 +29,11 @@ class StaffProfile(Base):
     emergency_contact = Column(String)
     qualification = Column(String)
     date_of_retirement = Column(Date)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
     updated_at = Column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=utc_now,
+        onupdate=utc_now,
         nullable=False,
     )
 
@@ -73,4 +72,3 @@ class StaffProfile(Base):
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
-

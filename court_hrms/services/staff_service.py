@@ -13,7 +13,10 @@ from court_hrms.utils.validators import (
     require_text,
     validate_adult_birth_date,
     validate_cnic,
+    validate_digits_max_length,
     validate_email,
+    validate_exact_digits,
+    validate_minimum_length,
 )
 
 
@@ -71,6 +74,15 @@ class StaffService:
         father_name = require_text(data, "father_name", "Father name", errors)
         cnic = clean_text(data.get("cnic"))
         validate_cnic(cnic, errors)
+        district = require_text(data, "district", "District", errors)
+        mobile_number = clean_text(data.get("mobile_number"))
+        validate_exact_digits(mobile_number, "Mobile number", 11, errors, required=True)
+        present_address = clean_text(data.get("present_address"))
+        validate_minimum_length(present_address, "Present address", 5, errors, required=True)
+        permanent_address = clean_text(data.get("permanent_address"))
+        validate_minimum_length(permanent_address, "Permanent address", 5, errors, required=True)
+        emergency_contact = clean_text(data.get("emergency_contact"))
+        validate_digits_max_length(emergency_contact, "Emergency contact", 17, errors)
 
         date_of_birth = validate_adult_birth_date(data.get("date_of_birth"), errors)
         email = optional_text(data, "email")
@@ -99,14 +111,13 @@ class StaffService:
             "religion": optional_text(data, "religion"),
             "marital_status": optional_text(data, "marital_status"),
             "domicile": optional_text(data, "domicile"),
-            "district": optional_text(data, "district"),
+            "district": district,
             "tehsil": optional_text(data, "tehsil"),
-            "mobile_number": optional_text(data, "mobile_number"),
+            "mobile_number": mobile_number,
             "email": email,
-            "present_address": optional_text(data, "present_address"),
-            "permanent_address": optional_text(data, "permanent_address"),
-            "emergency_contact": optional_text(data, "emergency_contact"),
+            "present_address": present_address,
+            "permanent_address": permanent_address,
+            "emergency_contact": emergency_contact,
             "qualification": optional_text(data, "qualification"),
             "date_of_retirement": calculate_retirement_date(date_of_birth),
         }
-
