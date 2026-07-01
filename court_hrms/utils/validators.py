@@ -113,6 +113,24 @@ def validate_minimum_length(
         errors.append(f"{label} must be at least {min_characters} characters.")
 
 
+def validate_text_with_letters(
+    value: str | None,
+    label: str,
+    min_characters: int,
+    errors: list[str],
+    *,
+    required: bool = False,
+) -> None:
+    if not value:
+        if required:
+            errors.append(f"{label} is required.")
+        return
+    if len(value) < min_characters:
+        errors.append(f"{label} must be at least {min_characters} characters.")
+    if not any(character.isalpha() for character in value):
+        errors.append(f"{label} must include letters, not numbers only.")
+
+
 def validate_email(value: str | None, errors: list[str]) -> None:
     if value and not EMAIL_RE.match(value):
         errors.append("Email address is not valid.")

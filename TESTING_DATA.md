@@ -14,16 +14,16 @@ Use this file as a practical checklist for testing District Court Orakzai HRMS. 
 | Field | Rule |
 | --- | --- |
 | Personal Number | Required and unique |
-| Full Name | Required |
-| Father Name | Required |
+| Full Name | Required, at least 3 characters, must include letters |
+| Father Name | Required, at least 3 characters, must include letters |
 | CNIC | Required, unique, exactly 13 digits, no dashes |
 | Date of Birth | Required, employee must be at least 18 years old |
 | Mobile Number | Required, exactly 11 digits |
 | Emergency Contact | Optional, digits only, maximum 17 digits |
-| Present Address | Required, at least 5 characters |
-| Permanent Address | Required, at least 5 characters |
-| District | Required |
-| Tehsil | Optional |
+| Present Address | Required, at least 5 characters, must include letters |
+| Permanent Address | Required, at least 5 characters, must include letters |
+| District | Required, at least 3 characters, must include letters |
+| Tehsil | Optional, but if entered must be at least 3 characters and include letters |
 | Email | Optional, but must be valid if entered |
 | Gender, Religion, Marital Status, Domicile, Qualification | Optional |
 
@@ -43,7 +43,11 @@ Use this file as a practical checklist for testing District Court Orakzai HRMS. 
 | Missing personal number | Set Personal # blank | `Personal number is required.` |
 | Duplicate personal number | Reuse `DC-ORZ-0001` for another profile | `Personal number already exists.` |
 | Missing full name | Set Full Name blank | `Full name is required.` |
+| Short full name | Use `M` | `Full name must be at least 3 characters.` |
+| Numeric full name | Use `123` | `Full name must include letters, not numbers only.` |
 | Missing father name | Set Father Name blank | `Father name is required.` |
+| Short father name | Use `A` | `Father name must be at least 3 characters.` |
+| Numeric father name | Use `456` | `Father name must include letters, not numbers only.` |
 | Missing CNIC | Set CNIC blank | `CNIC is required.` |
 | Short CNIC | Use `173011234567` | `CNIC must be exactly 13 digits without dashes.` |
 | Long CNIC | Use `17301123456712` | `CNIC must be exactly 13 digits without dashes.` |
@@ -57,9 +61,15 @@ Use this file as a practical checklist for testing District Court Orakzai HRMS. 
 | Emergency contact with letters | Use `0300ABC4567` | `Emergency contact must contain digits only.` |
 | Emergency contact too long | Use `123456789012345678` | `Emergency contact cannot be more than 17 digits.` |
 | Missing district | Set District blank | `District is required.` |
+| Short district | Use `Or` | `District must be at least 3 characters.` |
+| Numeric district | Use `123` | `District must include letters, not numbers only.` |
 | Tehsil blank | Set Tehsil blank | Should save successfully |
+| Short tehsil | Use `Up` | `Tehsil must be at least 3 characters.` |
+| Numeric tehsil | Use `456` | `Tehsil must include letters, not numbers only.` |
 | Present address too short | Use `ABCD` | `Present address must be at least 5 characters.` |
+| Numeric present address | Use `12345` | `Present address must include letters, not numbers only.` |
 | Permanent address too short | Use `WXYZ` | `Permanent address must be at least 5 characters.` |
+| Numeric permanent address | Use `67890` | `Permanent address must include letters, not numbers only.` |
 | Invalid email | Use `not-an-email` | `Email address is not valid.` |
 
 ## Valid Service Records

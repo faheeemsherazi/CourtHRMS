@@ -16,7 +16,7 @@ from court_hrms.utils.validators import (
     validate_digits_max_length,
     validate_email,
     validate_exact_digits,
-    validate_minimum_length,
+    validate_text_with_letters,
 )
 
 
@@ -70,17 +70,22 @@ class StaffService:
         errors: list[str] = []
 
         personal_number = require_text(data, "personal_number", "Personal number", errors)
-        full_name = require_text(data, "full_name", "Full name", errors)
-        father_name = require_text(data, "father_name", "Father name", errors)
+        full_name = clean_text(data.get("full_name"))
+        validate_text_with_letters(full_name, "Full name", 3, errors, required=True)
+        father_name = clean_text(data.get("father_name"))
+        validate_text_with_letters(father_name, "Father name", 3, errors, required=True)
         cnic = clean_text(data.get("cnic"))
         validate_cnic(cnic, errors)
-        district = require_text(data, "district", "District", errors)
+        district = clean_text(data.get("district"))
+        validate_text_with_letters(district, "District", 3, errors, required=True)
+        tehsil = optional_text(data, "tehsil")
+        validate_text_with_letters(tehsil, "Tehsil", 3, errors)
         mobile_number = clean_text(data.get("mobile_number"))
         validate_exact_digits(mobile_number, "Mobile number", 11, errors, required=True)
         present_address = clean_text(data.get("present_address"))
-        validate_minimum_length(present_address, "Present address", 5, errors, required=True)
+        validate_text_with_letters(present_address, "Present address", 5, errors, required=True)
         permanent_address = clean_text(data.get("permanent_address"))
-        validate_minimum_length(permanent_address, "Permanent address", 5, errors, required=True)
+        validate_text_with_letters(permanent_address, "Permanent address", 5, errors, required=True)
         emergency_contact = clean_text(data.get("emergency_contact"))
         validate_digits_max_length(emergency_contact, "Emergency contact", 17, errors)
 
@@ -112,7 +117,7 @@ class StaffService:
             "marital_status": optional_text(data, "marital_status"),
             "domicile": optional_text(data, "domicile"),
             "district": district,
-            "tehsil": optional_text(data, "tehsil"),
+            "tehsil": tehsil,
             "mobile_number": mobile_number,
             "email": email,
             "present_address": present_address,

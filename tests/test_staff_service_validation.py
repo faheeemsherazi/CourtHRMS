@@ -152,6 +152,53 @@ class StaffServiceValidationTest(unittest.TestCase):
             "Permanent address is required.",
         )
 
+    def test_names_locations_and_addresses_must_include_letters(self) -> None:
+        self.assert_validation_messages(
+            valid_staff_data(
+                full_name="123",
+                father_name="456",
+                district="789",
+                tehsil="101",
+                present_address="12345",
+                permanent_address="67890",
+            ),
+            "Full name must include letters, not numbers only.",
+            "Father name must include letters, not numbers only.",
+            "District must include letters, not numbers only.",
+            "Tehsil must include letters, not numbers only.",
+            "Present address must include letters, not numbers only.",
+            "Permanent address must include letters, not numbers only.",
+        )
+
+    def test_names_and_locations_must_meet_minimum_lengths(self) -> None:
+        self.assert_validation_messages(
+            valid_staff_data(
+                full_name="M",
+                father_name="A",
+                district="Or",
+                tehsil="Up",
+            ),
+            "Full name must be at least 3 characters.",
+            "Father name must be at least 3 characters.",
+            "District must be at least 3 characters.",
+            "Tehsil must be at least 3 characters.",
+        )
+
+    def test_addresses_accept_letters_and_numbers_together(self) -> None:
+        staff = self.service.create_staff(
+            valid_staff_data(
+                district="District 12",
+                tehsil="Tehsil 2",
+                present_address="House 12, Court Road",
+                permanent_address="Street 4, Orakzai",
+            )
+        )
+
+        self.assertEqual(staff.district, "District 12")
+        self.assertEqual(staff.tehsil, "Tehsil 2")
+        self.assertEqual(staff.present_address, "House 12, Court Road")
+        self.assertEqual(staff.permanent_address, "Street 4, Orakzai")
+
     def test_date_of_birth_must_show_employee_is_adult(self) -> None:
         self.assert_validation_messages(
             valid_staff_data(date_of_birth=date(2010, 1, 1)),
