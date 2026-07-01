@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
@@ -35,13 +36,20 @@ class PostingsTransfersPage(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(16)
+        page_layout = QVBoxLayout(self)
+        page_layout.setContentsMargins(24, 24, 24, 24)
+        page_layout.setSpacing(16)
 
         title = QLabel("Postings & Transfers")
         title.setObjectName("PageTitle")
-        layout.addWidget(title)
+        page_layout.addWidget(title)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(16)
 
         search_card = QFrame()
         search_card.setObjectName("Card")
@@ -161,7 +169,11 @@ class PostingsTransfersPage(QWidget):
         self.history_table.verticalHeader().setVisible(False)
         self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.history_table.setAlternatingRowColors(True)
+        self.history_table.setMinimumHeight(220)
         layout.addWidget(self.history_table, 1)
+
+        scroll.setWidget(content)
+        page_layout.addWidget(scroll, 1)
 
     @staticmethod
     def _date_edit() -> QDateEdit:
@@ -183,6 +195,7 @@ class PostingsTransfersPage(QWidget):
     def _load_staff_context(self, show_not_found: bool = False) -> bool:
         ok, message, staff, current, history = self.controller.find_staff(self.staff_search_input.text())
         if not ok:
+            self._clear_staff_context()
             if show_not_found:
                 show_error(self, message, "Staff Search")
             return False
@@ -194,6 +207,13 @@ class PostingsTransfersPage(QWidget):
         self._render_current_posting(current)
         self._render_history(history)
         return True
+
+    def _clear_staff_context(self) -> None:
+        self.selected_staff_id = None
+        self.current_posting = None
+        self.staff_status.setText("No staff selected")
+        self._render_current_posting(None)
+        self._render_history([])
 
     def _render_current_posting(self, posting: dict | None) -> None:
         if posting is None:
@@ -250,6 +270,10 @@ class PostingsTransfersPage(QWidget):
     def _execute_transfer(self) -> None:
         if self.selected_staff_id is None:
             show_error(self, "Search and select a staff profile before executing transfer.")
+            return
+
+        if self.current_posting is None:
+            show_error(self, "No current posting was found. Add the first posting before transfer.")
             return
 
         if not confirm(self, "Execute transfer and update posting history?", "Confirm Transfer"):
