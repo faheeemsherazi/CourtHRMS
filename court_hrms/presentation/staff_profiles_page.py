@@ -204,8 +204,9 @@ class StaffProfilesPage(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setAlternatingRowColors(True)
         self.table.setColumnHidden(0, True)
+        self.table.setMinimumHeight(260)
         self.table.itemSelectionChanged.connect(self._load_selected_row)
-        content_layout.addWidget(self.table)
+        content_layout.addWidget(self.table, 1)
 
         scroll.setWidget(content)
         page_layout.addWidget(scroll, 1)
@@ -365,7 +366,10 @@ class StaffProfilesPage(QWidget):
                 format_date(profile.get("date_of_retirement")),
             ]
             for column, value in enumerate(values):
-                item = QTableWidgetItem("" if value is None else str(value))
+                text = "" if value is None else str(value)
+                item = QTableWidgetItem(text)
+                if text:
+                    item.setToolTip(text)
                 if column == 0:
                     item.setData(Qt.ItemDataRole.UserRole, profile)
                 self.table.setItem(row, column, item)

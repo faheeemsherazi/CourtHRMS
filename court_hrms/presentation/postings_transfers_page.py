@@ -239,7 +239,10 @@ class PostingsTransfersPage(QWidget):
                 posting.get("remarks"),
             ]
             for column, value in enumerate(values):
-                item = QTableWidgetItem("" if value is None else str(value))
+                text = "" if value is None else str(value)
+                item = QTableWidgetItem(text)
+                if text:
+                    item.setToolTip(text)
                 if column == 0:
                     item.setData(Qt.ItemDataRole.UserRole, posting)
                 self.history_table.setItem(row, column, item)
