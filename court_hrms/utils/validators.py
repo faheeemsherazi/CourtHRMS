@@ -160,7 +160,9 @@ def validate_bps(value, errors: list[str]) -> int | None:
     return bps
 
 
-def validate_designation_bps(designation: str | None, bps: int | None, errors: list[str]) -> None:
+def validate_designation_bps(
+    designation: str | None, bps: int | None, errors: list[str]
+) -> None:
     if not designation or bps is None:
         return
     bps_range = DESIGNATION_BPS_RANGES.get(designation)
@@ -174,7 +176,9 @@ def validate_designation_bps(designation: str | None, bps: int | None, errors: l
         )
 
 
-def validate_choice(value: str | None, allowed: tuple[str, ...], label: str, errors: list[str]) -> str | None:
+def validate_choice(
+    value: str | None, allowed: tuple[str, ...], label: str, errors: list[str]
+) -> str | None:
     if not value:
         errors.append(f"{label} is required.")
         return None

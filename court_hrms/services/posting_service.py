@@ -29,7 +29,9 @@ class PostingService:
         return self.repository.history_for_staff(staff_id)
 
     def add_first_posting(self, data: dict) -> PostingTransfer:
-        staff_id, first_appointment_date = self._validate_staff_ready(data.get("staff_id"))
+        staff_id, first_appointment_date = self._validate_staff_ready(
+            data.get("staff_id")
+        )
         payload = self._validate_posting_payload(
             data,
             station_field="station_name",
@@ -40,11 +42,15 @@ class PostingService:
 
         current_postings = self.repository.current_postings_for_staff(staff_id)
         if current_postings:
-            raise ValidationError("This staff member already has a current posting. Use transfer instead.")
+            raise ValidationError(
+                "This staff member already has a current posting. Use transfer instead."
+            )
 
         existing_history = self.repository.history_for_staff(staff_id)
         if existing_history:
-            raise ValidationError("Posting history already exists for this staff member. Use transfer instead.")
+            raise ValidationError(
+                "Posting history already exists for this staff member. Use transfer instead."
+            )
 
         posting = PostingTransfer(
             staff_id=staff_id,
@@ -65,7 +71,9 @@ class PostingService:
             return self._execute_transfer(data)
 
     def _execute_transfer(self, data: dict) -> PostingTransfer:
-        staff_id, first_appointment_date = self._validate_staff_ready(data.get("staff_id"))
+        staff_id, first_appointment_date = self._validate_staff_ready(
+            data.get("staff_id")
+        )
         payload = self._validate_posting_payload(
             data,
             station_field="new_station",
@@ -76,7 +84,9 @@ class PostingService:
 
         current_postings = self.repository.current_postings_for_staff(staff_id)
         if not current_postings:
-            raise ValidationError("No current posting was found. Add the first posting before transfer.")
+            raise ValidationError(
+                "No current posting was found. Add the first posting before transfer."
+            )
         if len(current_postings) > 1:
             raise ValidationError(
                 "Multiple current postings exist for this staff member. Please correct posting history first."
@@ -85,7 +95,9 @@ class PostingService:
         current_posting = current_postings[0]
         transfer_date: date = payload["posting_date"]
         if transfer_date < current_posting.start_date:
-            raise ValidationError("Transfer date cannot be before the current posting start date.")
+            raise ValidationError(
+                "Transfer date cannot be before the current posting start date."
+            )
 
         current_posting.end_date = transfer_date
         current_posting.is_current = False
@@ -106,15 +118,21 @@ class PostingService:
         try:
             staff_id = int(raw_staff_id)
         except (TypeError, ValueError) as exc:
-            raise ValidationError("Staff profile must be selected before posting or transfer.") from exc
+            raise ValidationError(
+                "Staff profile must be selected before posting or transfer."
+            ) from exc
 
         staff = self.staff_repository.get_by_id(staff_id)
         if staff is None:
-            raise ValidationError("Staff profile must already exist before posting or transfer.")
+            raise ValidationError(
+                "Staff profile must already exist before posting or transfer."
+            )
 
         service_record = self.service_record_repository.latest_for_staff(staff_id)
         if service_record is None:
-            raise ValidationError("A service record must exist before posting or transfer.")
+            raise ValidationError(
+                "A service record must exist before posting or transfer."
+            )
 
         return staff_id, service_record.date_first_appointment
 

@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
 
 from court_hrms.database.db import Base
@@ -11,7 +20,9 @@ class PostingTransfer(Base):
     __tablename__ = "postings_transfers"
 
     id = Column(Integer, primary_key=True)
-    staff_id = Column(Integer, ForeignKey("staff_profiles.id"), nullable=False, index=True)
+    staff_id = Column(
+        Integer, ForeignKey("staff_profiles.id"), nullable=False, index=True
+    )
     station_name = Column(String, nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date)

@@ -69,7 +69,9 @@ class StaffService:
     ) -> dict:
         errors: list[str] = []
 
-        personal_number = require_text(data, "personal_number", "Personal number", errors)
+        personal_number = require_text(
+            data, "personal_number", "Personal number", errors
+        )
         full_name = clean_text(data.get("full_name"))
         validate_text_with_letters(full_name, "Full name", 3, errors, required=True)
         father_name = clean_text(data.get("father_name"))
@@ -83,9 +85,13 @@ class StaffService:
         mobile_number = clean_text(data.get("mobile_number"))
         validate_exact_digits(mobile_number, "Mobile number", 11, errors, required=True)
         present_address = clean_text(data.get("present_address"))
-        validate_text_with_letters(present_address, "Present address", 5, errors, required=True)
+        validate_text_with_letters(
+            present_address, "Present address", 5, errors, required=True
+        )
         permanent_address = clean_text(data.get("permanent_address"))
-        validate_text_with_letters(permanent_address, "Permanent address", 5, errors, required=True)
+        validate_text_with_letters(
+            permanent_address, "Permanent address", 5, errors, required=True
+        )
         emergency_contact = clean_text(data.get("emergency_contact"))
         validate_digits_max_length(emergency_contact, "Emergency contact", 17, errors)
 

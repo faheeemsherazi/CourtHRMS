@@ -74,7 +74,9 @@ class PostingServiceValidationTest(unittest.TestCase):
             context.exception.messages,
         )
 
-    def test_transfer_after_first_posting_closes_current_and_adds_new_current(self) -> None:
+    def test_transfer_after_first_posting_closes_current_and_adds_new_current(
+        self,
+    ) -> None:
         staff = self.create_staff_with_service_record()
 
         first_posting = self.service.add_first_posting(

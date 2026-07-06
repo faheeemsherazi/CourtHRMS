@@ -1,24 +1,25 @@
 # District Court Orakzai HRMS Workflow
 
-This file explains how to use the District Court Orakzai Human Resource Management System from startup through each screen in the application. It is written for an administrator or operator who needs to understand the full workflow of the software.
+This guide explains how an administrator uses District Court Orakzai HRMS from login through UC01-UC08.
 
-## 1. What This Software Does
+## 1. System Scope
 
-District Court Orakzai HRMS is a desktop application for maintaining court staff HR records. The current application supports:
+The application supports:
 
-- Secure administrator login.
-- Staff profile registration and update.
-- Service record registration and update.
-- First posting entry.
-- Transfer execution with posting history.
-- Dashboard totals for staff, service records, and current postings.
-- Administrator username, display name, and password update.
+- UC01: Login to the System
+- UC02: Manage Staff Profiles
+- UC03: Manage Service Records
+- UC04: Manage Postings & Transfers
+- UC05: Manage Leave Records
+- UC06: Manage Seniority Lists
+- UC07: Generate HR Reports
+- UC08: Logout from System
 
-The current UI does not include delete, export, report printing, attendance, payroll, leave, or document upload functionality.
+The Admin Account screen is also available for changing the administrator username, display name, and password.
 
 ## 2. Start the Application
 
-Install dependencies first:
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -27,16 +28,16 @@ pip install -r requirements.txt
 Run from the project root:
 
 ```bash
-python main.py
+python3 main.py
 ```
 
-You can also run:
+Or:
 
 ```bash
-python -m court_hrms.main
+python3 -m court_hrms.main
 ```
 
-When the application starts, it automatically creates the SQLite database and the default administrator account if they do not already exist.
+On Windows, use `python main.py` or the configured PyCharm run target.
 
 Default login:
 
@@ -45,11 +46,11 @@ Default login:
 | Username | `admin` |
 | Password | `admin123` |
 
-Recommended first step after first login: open `Admin Account` and change the default password.
+Change the default password from `Admin Account` after first login.
 
-## 3. Database Location
+## 3. Database and Migration
 
-The database is created automatically.
+SQLite is created or upgraded automatically on startup.
 
 Default database locations:
 
@@ -58,23 +59,49 @@ Default database locations:
 | Windows | `%LOCALAPPDATA%\DistrictCourtOrakzaiHRMS\court_hrms.sqlite3` |
 | Linux/macOS | `~/.local/share/DistrictCourtOrakzaiHRMS/court_hrms.sqlite3` |
 
-For development or testing, use a custom database file:
+For development or testing:
 
 ```bash
-COURT_HRMS_DB_PATH=/path/to/court_hrms.sqlite3 python main.py
+COURT_HRMS_DB_PATH=/path/to/court_hrms.sqlite3 python3 main.py
 ```
 
-## 4. Login and Logout Workflow
+The built-in migration creates these leave tables if missing:
+
+- `annual_leave_accounts`
+- `leave_records`
+
+Before the migration creates missing tables, it backs up the existing database under:
+
+```text
+<app-data>/DistrictCourtOrakzaiHRMS/backups/
+```
+
+## 4. Login and Logout
+
+### Login
 
 1. Open the application.
 2. Enter administrator username and password.
 3. Click `Login`, or press Enter while focused on the password field.
 4. If credentials are valid, the main window opens.
-5. Use the sidebar to move between pages.
-6. Click `Logout` in the sidebar to leave the main window.
-7. Confirm the logout prompt.
 
 If login fails, the application shows `Invalid credentials.`, clears the password field, and keeps the login window open.
+
+### Logout
+
+1. Click `Logout` in the sidebar.
+2. Confirm the prompt:
+
+```text
+Logout from the system?
+
+Any unsaved form input will be discarded.
+```
+
+3. The main window closes safely.
+4. The login window appears again.
+
+Logout clears authenticated state and protected page selections without creating a second `QApplication`.
 
 ## 5. Main Navigation
 
@@ -84,283 +111,326 @@ After login, the sidebar contains:
 - `Staff Profiles`
 - `Service Records`
 - `Postings & Transfers`
+- `Leave Management`
+- `Seniority Lists`
+- `Reports & Printing`
 - `Admin Account`
 - `Logout`
 
-Opening a page refreshes its data automatically where refresh is supported.
+Pages are created once and refreshed when opened.
 
 ## 6. Dashboard
 
-The Dashboard is a read-only summary page.
+The Dashboard is read-only.
 
 It shows:
 
-- Total staff profiles.
-- Total service records.
-- Total current postings.
-- A short summary of the system scope.
+- Total staff profiles
+- Total service records
+- Total current postings
+- Current system scope summary
 
-Use this page to quickly confirm whether records have been entered and whether current postings exist.
+Use it to confirm that core records and posting data exist.
 
-## 7. Staff Profiles Workflow
+## 7. Staff Profiles
 
 Use `Staff Profiles` to create, search, view, and update employee personal information.
 
-### 7.1 Add a Staff Profile
+### Add Staff
 
 1. Open `Staff Profiles`.
 2. Fill in the profile form.
-3. Review the calculated `Retirement Date`. This is automatically calculated from `Date of Birth`.
+3. Review the calculated retirement date.
 4. Click `Add Profile`.
-5. If validation succeeds, the profile is saved and appears in the `Staff Register` table.
+5. The profile appears in the `Staff Register` table.
 
-### 7.2 Search a Staff Profile
+### Search Staff
 
-1. Enter the staff member's personal number in the search box at the top.
+1. Enter Personal Number in the search box.
 2. Click `Search`, or press Enter.
-3. If the personal number exists, the profile loads into the form.
+3. The matching profile loads into the form.
 
-### 7.3 Update a Staff Profile
+### Update Staff
 
-1. Search for a profile, or select a row in the `Staff Register` table.
-2. The selected profile loads into the form.
-3. Edit the required fields.
-4. Click `Update Profile`.
-5. The table refreshes with the updated information.
+1. Search for a profile or select a register row.
+2. Edit fields.
+3. Click `Update Profile`.
+4. The table refreshes.
 
-### 7.4 Clear the Staff Form
+### Required Staff Rules
 
-Click `Clear` in the search area or `Clear Form` in the form area. This clears the search input, form fields, selected table row, and disables `Update Profile` until another profile is selected.
+| Field | Rule |
+| --- | --- |
+| Personal Number | Required and unique |
+| Full Name | Required, at least 3 characters, must include letters |
+| Father Name | Required, at least 3 characters, must include letters |
+| CNIC | Required, unique, exactly 13 digits |
+| Date of Birth | Required, employee must be at least 18 |
+| Mobile Number | Required, exactly 11 digits |
+| District | Required, at least 3 characters, must include letters |
+| Present Address | Required, at least 5 characters, must include letters |
+| Permanent Address | Required, at least 5 characters, must include letters |
 
-### 7.5 Staff Profile Fields
+## 8. Service Records
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| Personal Number | Yes | Must be unique. Used for searching staff throughout the system. |
-| Full Name | Yes | At least 3 characters and must include letters. |
-| Father Name | Yes | At least 3 characters and must include letters. |
-| CNIC | Yes | Exactly 13 digits, no dashes, unique. |
-| Date of Birth | Yes | Employee must be at least 18 years old. |
-| Retirement Date | Automatic | Read-only; calculated from date of birth. |
-| Gender | No | Select from the dropdown. |
-| Religion | No | Select from the dropdown. |
-| Marital Status | No | Select from the dropdown. |
-| Domicile | No | Free text. |
-| District | Yes | At least 3 characters and must include letters. |
-| Tehsil | No | If entered, at least 3 characters and must include letters. |
-| Mobile Number | Yes | Exactly 11 digits. |
-| Email | No | If entered, must be a valid email address. |
-| Emergency Contact | No | Digits only, maximum 17 digits. |
-| Qualification | No | Free text. |
-| Present Address | Yes | At least 5 characters and must include letters. |
-| Permanent Address | Yes | At least 5 characters and must include letters. |
+Use `Service Records` to maintain current and historical employment details.
 
-## 8. Service Records Workflow
+Prerequisite: staff profile must exist.
 
-Use `Service Records` to maintain employment details for an existing staff profile.
-
-Important prerequisite: a staff profile must exist before a service record can be added.
-
-### 8.1 Select Staff for a Service Record
+### Add Service Record
 
 1. Open `Service Records`.
-2. Enter the staff personal number.
-3. Click `Search Staff`, or press Enter.
-4. If the staff profile exists, the page shows the selected staff member.
-5. If a latest service record already exists for that staff member, it loads into the form.
+2. Search staff by Personal Number.
+3. Fill in designation, BPS, employment type, status, appointment date, and optional fields.
+4. Click `Add Service Record`.
 
-### 8.2 Add a Service Record
+### Update Service Record
 
-1. Search and select the staff member first.
-2. Fill in the service details.
-3. Click `Add Service Record`.
-4. If validation succeeds, the record is saved and appears in the `Service Record Register`.
-
-The application can store more than one service record for a staff member. Searching by personal number loads the latest record. Selecting a row in the register loads that specific record.
-
-### 8.3 Update a Service Record
-
-1. Search for a staff member with an existing service record, or select a row in the `Service Record Register`.
-2. Edit the service details.
+1. Search staff or select a service register row.
+2. Edit service details.
 3. Click `Update Service Record`.
-4. The selected record is updated.
 
-### 8.4 Clear the Service Record Form
+### Service Rules
 
-Click `Clear Form` to clear the selected staff, service fields, selected table row, and update mode.
+- Designation is required.
+- BPS must be between 1 and 22.
+- BPS must match the configured designation range.
+- Employment Type must be `Permanent`, `Contract`, or `Temporary`.
+- Employment Status must be `Active`, `Retired`, or `Suspended`.
+- Current Promotion Date cannot be before Date of First Appointment.
+- Merit Number must be a non-negative whole number if entered.
 
-### 8.5 Service Record Fields
+## 9. Postings & Transfers
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| Staff | Yes | Search by personal number before adding. |
-| Designation | Yes | Must be selected from the designation dropdown. |
-| BPS | Yes | Must be between 1 and 22 and compatible with the designation. |
-| Employment Type | Yes | `Permanent`, `Contract`, or `Temporary`. |
-| Employment Status | Yes | `Active`, `Retired`, or `Suspended`. |
-| First Appointment | Yes | Date of first appointment. |
-| Current Promotion Date | No | Enable the checkbox before entering the promotion date. |
-| Merit Number | No | If entered, must be a whole number and cannot be negative. |
-| Remarks | No | Free text. |
+Use `Postings & Transfers` for first posting and later transfers.
 
-### 8.6 Designation and BPS Rules
+Prerequisites:
 
-| Designation | Allowed BPS |
-| --- | --- |
-| Naib Qasid | 1 to 5 |
-| Junior Clerk | 7 to 11 |
-| Senior Clerk | 11 to 14 |
-| Stenographer | 14 to 16 |
-| Superintendent | 16 to 18 |
-| Civil Judge | 17 to 19 |
-| Additional District Judge | 20 to 21 |
-| District & Sessions Judge | 21 to 22 |
+- Staff profile must exist.
+- Service record must exist.
+- First posting must exist before transfer.
 
-The current promotion date cannot be earlier than the first appointment date.
-
-## 9. Postings and Transfers Workflow
-
-Use `Postings & Transfers` to enter a staff member's first posting and later execute transfers.
-
-Important prerequisites:
-
-- A staff profile must exist.
-- A service record must exist before posting or transfer.
-- A first posting must exist before a transfer can be executed.
-
-### 9.1 Search Staff for Posting or Transfer
+### Add First Posting
 
 1. Open `Postings & Transfers`.
-2. Enter the staff personal number.
-3. Click `Search Staff`, or press Enter.
-4. The page shows the staff name and whether a service record is available.
-5. The current posting and posting history load if they exist.
-
-### 9.2 Add First Posting
-
-Use this only once for each staff member.
-
-1. Search and select the staff member.
-2. Confirm the staff member has a service record.
-3. Enter the first posting station.
-4. Select the start date.
-5. Enter reason and remarks if needed.
-6. Click `Add First Posting`.
-7. The first posting becomes the current posting and appears in the posting history.
+2. Search staff by Personal Number.
+3. Enter station, start date, reason, and remarks.
+4. Click `Add First Posting`.
 
 Rules:
 
 - Station name is required.
-- Start date cannot be before the staff member's date of first appointment.
-- If a current posting or posting history already exists, use `Execute Transfer` instead.
+- Start date cannot be before Date of First Appointment.
+- If posting history already exists, use transfer instead.
 
-### 9.3 Execute Transfer
+### Execute Transfer
 
-1. Search and select the staff member.
-2. Confirm a current posting is shown.
-3. Enter the new station.
-4. Select the transfer date.
-5. Enter reason and remarks if needed.
-6. Click `Execute Transfer`.
-7. Confirm the transfer prompt.
+1. Search staff by Personal Number.
+2. Confirm a current posting is displayed.
+3. Enter new station, transfer date, reason, and remarks.
+4. Click `Execute Transfer`.
+5. Confirm the prompt.
 
-When a transfer succeeds:
+When transfer succeeds:
 
-- The previous current posting is closed.
-- Its end date is set to the transfer date.
-- A new current posting is created for the new station.
-- The posting history table refreshes.
+- Previous posting is closed.
+- Previous posting end date becomes the transfer date.
+- New posting becomes current.
+- Posting history refreshes.
 
-Rules:
+## 10. Leave Management
 
-- A current posting must exist before transfer.
-- New station is required.
-- Transfer date cannot be before the current posting start date.
-- Transfer date cannot be before the staff member's date of first appointment.
+Use `Leave Management` to record annual leave and view balances.
 
-### 9.4 Posting History
+Policy:
 
-The posting history table shows:
+- Each staff member receives 25 annual leave days per calendar year.
+- Leave days are counted inclusively.
+- A leave request cannot cross calendar years.
+- Requests exceeding remaining balance are blocked.
 
-- Station.
-- Start date.
-- End date.
-- Whether the row is current.
-- Transfer reason.
-- Remarks.
+### Search Staff
 
-The current UI does not provide editing or deletion of posting history records. Corrections require a code/database-level change or a future UI feature.
+1. Open `Leave Management`.
+2. Enter Personal Number.
+3. Click `Search`.
+4. Staff details, service status, balance summary, and history load.
 
-## 10. Admin Account Workflow
+### Process Leave
 
-Use `Admin Account` to change the signed-in administrator details.
+1. Select Leave Year.
+2. Select Start Date and End Date.
+3. Confirm the calculated day count.
+4. Enter Reason.
+5. Enter Remarks if needed.
+6. Click `Process Leave`.
 
-### 10.1 Change Username or Display Name
+On success:
+
+```text
+Leave recorded successfully.
+New remaining balance: X days.
+```
+
+On insufficient balance:
+
+```text
+Insufficient leave balance.
+Requested: X days
+Remaining: Y days
+```
+
+The history row and balance update are saved in one transaction.
+
+## 11. Seniority Lists
+
+Use `Seniority Lists` to generate official designation-wise active-staff seniority.
+
+### Generate List
+
+1. Open `Seniority Lists`.
+2. Select Designation.
+3. Click `Generate List`.
+4. Review ranked staff, summary counts, and exclusions.
+
+Ranking order:
+
+1. Selected designation only.
+2. Active staff only.
+3. Date of First Appointment ascending.
+4. Date of Current Promotion ascending, missing values last.
+5. Selection Merit Number ascending, missing values last.
+6. Date of Birth ascending.
+7. Personal Number ascending.
+
+Staff missing Date of First Appointment are excluded and shown in the exclusions panel.
+
+## 12. Reports & Printing
+
+Use `Reports & Printing` for preview, PDF export, and print dispatch.
+
+Available reports:
+
+- Individual Staff Profile
+- Leave History
+- Seniority List
+
+### Individual Staff Profile
+
+1. Select `Individual Staff Profile`.
+2. Enter Personal Number.
+3. Click `Preview Report`, `Export PDF`, or `Print`.
+
+Report includes identity, contact, service, posting, and leave summary sections.
+
+### Leave History
+
+1. Select `Leave History`.
+2. Enter Personal Number.
+3. Select a year or `All Years`.
+4. Preview, export, or print.
+
+Leave totals match the same leave service used by `Leave Management`.
+
+### Seniority List
+
+1. Select `Seniority List`.
+2. Select Designation.
+3. Preview, export, or print.
+
+Ranks match the same seniority service used by `Seniority Lists`.
+
+### PDF Export
+
+1. Click `Export PDF`.
+2. Choose save location.
+3. Confirm overwrite if the file already exists.
+
+On success:
+
+```text
+PDF report exported successfully.
+```
+
+### Print
+
+1. Click `Print`.
+2. Select a printer in the operating system print dialog.
+3. Print or cancel.
+
+Cancelling the print dialog is not an error.
+
+## 13. Admin Account
+
+Use `Admin Account` to change signed-in administrator details.
+
+### Change Username or Display Name
 
 1. Open `Admin Account`.
 2. Edit `Username` or `Full Name`.
-3. Enter the current password.
-4. Leave new password fields blank if you do not want to change the password.
+3. Enter current password.
+4. Leave new password fields blank if password should not change.
 5. Click `Save Account`.
 
-Rules:
-
-- Username is required.
-- Username must be at least 3 characters.
-- Username must be unique.
-- Current password is required for any account update.
-
-### 10.2 Change Password
+### Change Password
 
 1. Open `Admin Account`.
-2. Enter the current password.
-3. Enter the new password.
-4. Repeat the same value in `Confirm Password`.
+2. Enter current password.
+3. Enter new password.
+4. Repeat it in `Confirm Password`.
 5. Click `Save Account`.
 
 Rules:
 
+- Username is required and unique.
+- Username must be at least 3 characters.
+- Current password is required for account updates.
 - New password must be at least 8 characters.
-- New password and confirmation must match.
-- If new password fields are left blank, the existing password is kept.
+- New password confirmation must match.
 
-After a successful account update, the sidebar signed-in label refreshes. Use the updated username and password for future logins.
+## 14. Recommended Daily Workflows
 
-## 11. Recommended End-to-End Daily Workflow
+### New Employee
 
-For a new employee:
+1. Login.
+2. Add Staff Profile.
+3. Add Service Record.
+4. Add First Posting.
+5. Confirm dashboard totals.
 
-1. Login as administrator.
-2. Open `Staff Profiles`.
-3. Add the staff profile.
-4. Open `Service Records`.
-5. Search the staff member by personal number.
-6. Add the service record.
-7. Open `Postings & Transfers`.
-8. Search the staff member by personal number.
-9. Add the first posting.
-10. Return to `Dashboard` and confirm totals updated.
+### Leave Request
 
-For an employee transfer:
+1. Open `Leave Management`.
+2. Search staff.
+3. Select year and dates.
+4. Confirm calculated days.
+5. Process leave.
+6. Confirm remaining balance and history.
 
-1. Login as administrator.
-2. Open `Postings & Transfers`.
-3. Search the staff member by personal number.
-4. Confirm the current posting.
-5. Enter transfer details.
-6. Click `Execute Transfer`.
-7. Confirm the transfer.
-8. Review posting history.
+### Seniority List
 
-For updating existing data:
+1. Ensure staff service records are current.
+2. Open `Seniority Lists`.
+3. Select designation.
+4. Generate list.
+5. Review exclusions.
+6. Export or print from `Reports & Printing` if needed.
 
-1. Open the relevant page.
-2. Search by personal number, or select a row from the register table.
-3. Edit the fields.
-4. Click the update button on that page.
-5. Confirm the register table refreshes.
+### HR Report
 
-## 12. Common Validation Messages
+1. Open `Reports & Printing`.
+2. Select report type.
+3. Enter required filters.
+4. Preview.
+5. Export PDF or print.
+
+### End Session
+
+1. Click `Logout`.
+2. Confirm.
+3. Verify login screen appears.
+
+## 15. Common Validation Messages
 
 | Situation | Message |
 | --- | --- |
@@ -368,22 +438,31 @@ For updating existing data:
 | Staff personal number not found | `No staff profile found for this personal number.` |
 | Duplicate staff personal number | `Personal number already exists.` |
 | Duplicate CNIC | `CNIC already exists.` |
-| CNIC format wrong | `CNIC must be exactly 13 digits without dashes.` |
-| Mobile format wrong | `Mobile number must be exactly 11 digits.` |
 | Service record without staff | `Search and select a staff profile before adding a service record.` |
 | Posting before service record | `A service record must exist before posting or transfer.` |
 | Transfer before first posting | `No current posting was found. Add the first posting before transfer.` |
+| Leave without staff | `Search and select a staff profile before processing leave.` |
+| Cross-year leave | `A leave request cannot cross calendar years. Record each year separately.` |
+| Insufficient leave | `Insufficient leave balance.` |
+| Missing report staff | `No records found for the supplied Personal Number.` |
 | Account update without current password | `Current password is required.` |
 
-## 13. Current Functional Boundaries
-
-The software currently focuses on record creation, search, update, and posting history. Keep these boundaries in mind:
+## 16. Functional Boundaries
 
 - Staff profiles can be added and updated, but not deleted from the UI.
 - Service records can be added and updated, but not deleted from the UI.
-- Posting history can be created through first posting and transfer, but not edited or deleted from the UI.
-- The dashboard is read-only.
-- Only administrator login is implemented.
-- There is no role management or multi-user permission screen.
-- There is no built-in backup/restore screen. Backups should be handled by copying the SQLite database file while the app is closed.
+- Posting history is created through first posting and transfer, but not edited or deleted from the UI.
+- Leave records can be added and viewed, but not deleted from the UI.
+- Seniority ranks are generated dynamically and are not manually editable.
+- Reports are read-only and do not modify database data.
+- SQLite is intended for standalone desktop use.
+- Backup and restore are handled by copying the SQLite database while the app is closed, plus automatic pre-migration backups.
 
+## 17. Verification Commands
+
+```bash
+.venv/bin/python -m compileall court_hrms tests main.py
+.venv/bin/python -m pytest -q
+.venv/bin/python -m ruff check .
+.venv/bin/python -m black --check .
+```

@@ -11,10 +11,16 @@ class AdminAccountController:
             admin = AdminAccountService(session).get_admin(admin_id)
             return admin.to_dict() if admin else None
 
-    def update_account(self, admin_id: int, data: dict) -> tuple[bool, str, dict | None]:
+    def update_account(
+        self, admin_id: int, data: dict
+    ) -> tuple[bool, str, dict | None]:
         try:
             with session_scope() as session:
                 admin = AdminAccountService(session).update_account(admin_id, data)
-                return True, "Administrator account updated successfully.", admin.to_dict()
+                return (
+                    True,
+                    "Administrator account updated successfully.",
+                    admin.to_dict(),
+                )
         except ValidationError as exc:
             return False, str(exc), None

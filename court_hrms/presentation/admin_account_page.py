@@ -34,7 +34,9 @@ class AdminAccountPage(QWidget):
 
         title = QLabel("Admin Account")
         title.setObjectName("PageTitle")
-        subtitle = QLabel("Change the administrator username, display name, or password.")
+        subtitle = QLabel(
+            "Change the administrator username, display name, or password."
+        )
         subtitle.setObjectName("Muted")
 
         layout.addWidget(title)
@@ -65,7 +67,9 @@ class AdminAccountPage(QWidget):
         self.confirm_password_input.setEchoMode(QLineEdit.EchoMode.Password)
 
         self.current_password_input.setPlaceholderText("Required to save changes")
-        self.new_password_input.setPlaceholderText("Leave blank to keep current password")
+        self.new_password_input.setPlaceholderText(
+            "Leave blank to keep current password"
+        )
         self.confirm_password_input.setPlaceholderText("Repeat new password")
 
         form.addWidget(QLabel("Username"), 0, 0)

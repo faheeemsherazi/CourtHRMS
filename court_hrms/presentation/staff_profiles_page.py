@@ -87,7 +87,9 @@ class StaffProfilesPage(QWidget):
         self.cnic_input = QLineEdit()
         self.cnic_input.setMaxLength(13)
         self.cnic_input.setValidator(
-            QRegularExpressionValidator(QRegularExpression(r"\d{0,13}"), self.cnic_input)
+            QRegularExpressionValidator(
+                QRegularExpression(r"\d{0,13}"), self.cnic_input
+            )
         )
         self.dob_input = QDateEdit()
         self.dob_input.setCalendarPopup(True)
@@ -98,15 +100,21 @@ class StaffProfilesPage(QWidget):
         self.dob_input.dateChanged.connect(self._update_retirement_preview)
 
         self.gender_input = self._combo(["", "Male", "Female", "Other"])
-        self.religion_input = self._combo(["", "Islam", "Christianity", "Hinduism", "Other"])
-        self.marital_status_input = self._combo(["", "Single", "Married", "Widowed", "Divorced"])
+        self.religion_input = self._combo(
+            ["", "Islam", "Christianity", "Hinduism", "Other"]
+        )
+        self.marital_status_input = self._combo(
+            ["", "Single", "Married", "Widowed", "Divorced"]
+        )
         self.domicile_input = QLineEdit()
         self.district_input = QLineEdit()
         self.tehsil_input = QLineEdit()
         self.mobile_number_input = QLineEdit()
         self.mobile_number_input.setMaxLength(11)
         self.mobile_number_input.setValidator(
-            QRegularExpressionValidator(QRegularExpression(r"\d{0,11}"), self.mobile_number_input)
+            QRegularExpressionValidator(
+                QRegularExpression(r"\d{0,11}"), self.mobile_number_input
+            )
         )
         self.email_input = QLineEdit()
         self.emergency_contact_input = QLineEdit()
@@ -201,7 +209,9 @@ class StaffProfilesPage(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
         self.table.setAlternatingRowColors(True)
         self.table.setColumnHidden(0, True)
         self.table.setMinimumHeight(260)
@@ -235,7 +245,9 @@ class StaffProfilesPage(QWidget):
 
     def _update_retirement_preview(self) -> None:
         birth_date = self._qdate_to_date(self.dob_input.date())
-        self.retirement_preview.setText(format_date(calculate_retirement_date(birth_date)))
+        self.retirement_preview.setText(
+            format_date(calculate_retirement_date(birth_date))
+        )
 
     def _collect_form_data(self) -> dict:
         return {
@@ -285,7 +297,9 @@ class StaffProfilesPage(QWidget):
         show_info(self, message)
 
     def _search_profile(self) -> None:
-        ok, message, profile = self.controller.search_by_personal_number(self.search_input.text())
+        ok, message, profile = self.controller.search_by_personal_number(
+            self.search_input.text()
+        )
         if not ok:
             show_error(self, message, "Search")
             return
@@ -318,7 +332,9 @@ class StaffProfilesPage(QWidget):
         self.mobile_number_input.setText(profile.get("mobile_number") or "")
         self.email_input.setText(profile.get("email") or "")
         self.present_address_input.setPlainText(profile.get("present_address") or "")
-        self.permanent_address_input.setPlainText(profile.get("permanent_address") or "")
+        self.permanent_address_input.setPlainText(
+            profile.get("permanent_address") or ""
+        )
         self.emergency_contact_input.setText(profile.get("emergency_contact") or "")
         self.qualification_input.setText(profile.get("qualification") or "")
         self.retirement_preview.setText(format_date(profile.get("date_of_retirement")))
@@ -345,7 +361,11 @@ class StaffProfilesPage(QWidget):
         self.present_address_input.clear()
         self.permanent_address_input.clear()
         self.dob_input.setDate(QDate.currentDate().addYears(-30))
-        for combo in [self.gender_input, self.religion_input, self.marital_status_input]:
+        for combo in [
+            self.gender_input,
+            self.religion_input,
+            self.marital_status_input,
+        ]:
             combo.setCurrentIndex(0)
         self.table.clearSelection()
         self.update_button.setEnabled(False)

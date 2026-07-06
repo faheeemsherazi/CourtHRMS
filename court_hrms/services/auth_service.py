@@ -30,4 +30,3 @@ class AuthService:
         if not self.verify_password(password, admin.password_hash):
             return None
         return admin
-

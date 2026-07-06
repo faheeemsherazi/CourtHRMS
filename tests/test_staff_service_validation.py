@@ -61,7 +61,9 @@ class StaffServiceValidationTest(unittest.TestCase):
         for expected in expected_messages:
             self.assertIn(expected, messages)
 
-    def test_valid_profile_accepts_optional_tehsil_and_short_emergency_contact(self) -> None:
+    def test_valid_profile_accepts_optional_tehsil_and_short_emergency_contact(
+        self,
+    ) -> None:
         staff = self.service.create_staff(
             valid_staff_data(
                 tehsil="",
@@ -121,7 +123,9 @@ class StaffServiceValidationTest(unittest.TestCase):
                     expected,
                 )
 
-    def test_emergency_contact_must_be_digits_and_no_more_than_seventeen_digits(self) -> None:
+    def test_emergency_contact_must_be_digits_and_no_more_than_seventeen_digits(
+        self,
+    ) -> None:
         self.assert_validation_messages(
             valid_staff_data(emergency_contact="0300ABC4567"),
             "Emergency contact must contain digits only.",
@@ -131,7 +135,9 @@ class StaffServiceValidationTest(unittest.TestCase):
             "Emergency contact cannot be more than 17 digits.",
         )
 
-    def test_district_required_and_addresses_must_be_at_least_five_characters(self) -> None:
+    def test_district_required_and_addresses_must_be_at_least_five_characters(
+        self,
+    ) -> None:
         self.assert_validation_messages(
             valid_staff_data(
                 district="",
@@ -246,7 +252,9 @@ class StaffServiceValidationTest(unittest.TestCase):
             "CNIC already exists.",
         )
 
-    def test_update_allows_same_identifiers_and_revalidates_changed_fields(self) -> None:
+    def test_update_allows_same_identifiers_and_revalidates_changed_fields(
+        self,
+    ) -> None:
         staff = self.service.create_staff(valid_staff_data())
 
         updated = self.service.update_staff(
@@ -265,7 +273,9 @@ class StaffServiceValidationTest(unittest.TestCase):
                 staff.id,
                 valid_staff_data(mobile_number="12345"),
             )
-        self.assertIn("Mobile number must be exactly 11 digits.", context.exception.messages)
+        self.assertIn(
+            "Mobile number must be exactly 11 digits.", context.exception.messages
+        )
 
 
 if __name__ == "__main__":

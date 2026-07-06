@@ -14,7 +14,9 @@ class StaffController:
         except ValidationError as exc:
             return False, str(exc), None
 
-    def update_profile(self, staff_id: int, data: dict) -> tuple[bool, str, dict | None]:
+    def update_profile(
+        self, staff_id: int, data: dict
+    ) -> tuple[bool, str, dict | None]:
         try:
             with session_scope() as session:
                 staff = StaffService(session).update_staff(staff_id, data)
@@ -22,7 +24,9 @@ class StaffController:
         except ValidationError as exc:
             return False, str(exc), None
 
-    def search_by_personal_number(self, personal_number: str) -> tuple[bool, str, dict | None]:
+    def search_by_personal_number(
+        self, personal_number: str
+    ) -> tuple[bool, str, dict | None]:
         with session_scope() as session:
             staff = StaffService(session).get_by_personal_number(personal_number)
             if staff is None:
@@ -36,4 +40,3 @@ class StaffController:
     def count_profiles(self) -> int:
         with session_scope() as session:
             return StaffService(session).count_staff()
-

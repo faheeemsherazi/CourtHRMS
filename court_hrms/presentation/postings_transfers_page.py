@@ -164,10 +164,16 @@ class PostingsTransfersPage(QWidget):
         )
         self.history_table.setColumnHidden(0, True)
         self.history_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.history_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.history_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.history_table.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectRows
+        )
+        self.history_table.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
         self.history_table.verticalHeader().setVisible(False)
-        self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.history_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
         self.history_table.setAlternatingRowColors(True)
         self.history_table.setMinimumHeight(220)
         layout.addWidget(self.history_table, 1)
@@ -193,7 +199,9 @@ class PostingsTransfersPage(QWidget):
         self._load_staff_context(show_not_found=True)
 
     def _load_staff_context(self, show_not_found: bool = False) -> bool:
-        ok, message, staff, current, history = self.controller.find_staff(self.staff_search_input.text())
+        ok, message, staff, current, history = self.controller.find_staff(
+            self.staff_search_input.text()
+        )
         if not ok:
             self._clear_staff_context()
             if show_not_found:
@@ -201,8 +209,14 @@ class PostingsTransfersPage(QWidget):
             return False
 
         self.selected_staff_id = staff["id"]
-        service_status = "service record available" if staff.get("has_service_record") else "service record missing"
-        self.staff_status.setText(f"{staff['personal_number']} - {staff['full_name']} ({service_status})")
+        service_status = (
+            "service record available"
+            if staff.get("has_service_record")
+            else "service record missing"
+        )
+        self.staff_status.setText(
+            f"{staff['personal_number']} - {staff['full_name']} ({service_status})"
+        )
         self.current_posting = current
         self._render_current_posting(current)
         self._render_history(history)
@@ -249,7 +263,9 @@ class PostingsTransfersPage(QWidget):
 
     def _add_first_posting(self) -> None:
         if self.selected_staff_id is None:
-            show_error(self, "Search and select a staff profile before adding a posting.")
+            show_error(
+                self, "Search and select a staff profile before adding a posting."
+            )
             return
 
         data = {
@@ -272,14 +288,21 @@ class PostingsTransfersPage(QWidget):
 
     def _execute_transfer(self) -> None:
         if self.selected_staff_id is None:
-            show_error(self, "Search and select a staff profile before executing transfer.")
+            show_error(
+                self, "Search and select a staff profile before executing transfer."
+            )
             return
 
         if self.current_posting is None:
-            show_error(self, "No current posting was found. Add the first posting before transfer.")
+            show_error(
+                self,
+                "No current posting was found. Add the first posting before transfer.",
+            )
             return
 
-        if not confirm(self, "Execute transfer and update posting history?", "Confirm Transfer"):
+        if not confirm(
+            self, "Execute transfer and update posting history?", "Confirm Transfer"
+        ):
             return
 
         data = {

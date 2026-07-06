@@ -11,7 +11,9 @@ class ServiceRecord(Base):
     __tablename__ = "service_records"
 
     id = Column(Integer, primary_key=True)
-    staff_id = Column(Integer, ForeignKey("staff_profiles.id"), nullable=False, index=True)
+    staff_id = Column(
+        Integer, ForeignKey("staff_profiles.id"), nullable=False, index=True
+    )
     designation = Column(String, nullable=False)
     bps = Column(Integer, nullable=False)
     employment_type = Column(String, nullable=False)

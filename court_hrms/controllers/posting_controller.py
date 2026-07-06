@@ -8,11 +8,21 @@ from court_hrms.utils.validators import ValidationError
 
 
 class PostingController:
-    def find_staff(self, personal_number: str) -> tuple[bool, str, dict | None, dict | None, list[dict]]:
+    def find_staff(
+        self, personal_number: str
+    ) -> tuple[bool, str, dict | None, dict | None, list[dict]]:
         with session_scope() as session:
-            staff = StaffRepository(session).get_by_personal_number((personal_number or "").strip())
+            staff = StaffRepository(session).get_by_personal_number(
+                (personal_number or "").strip()
+            )
             if staff is None:
-                return False, "No staff profile found for this personal number.", None, None, []
+                return (
+                    False,
+                    "No staff profile found for this personal number.",
+                    None,
+                    None,
+                    [],
+                )
 
             service = PostingService(session)
             current = service.get_current_posting(staff.id)
@@ -41,7 +51,11 @@ class PostingController:
         session = SessionLocal()
         try:
             posting = PostingService(session).execute_transfer(data)
-            return True, "Transfer successful; posting history updated.", posting.to_dict()
+            return (
+                True,
+                "Transfer successful; posting history updated.",
+                posting.to_dict(),
+            )
         except ValidationError as exc:
             session.rollback()
             return False, str(exc), None

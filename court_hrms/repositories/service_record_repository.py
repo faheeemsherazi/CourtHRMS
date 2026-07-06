@@ -31,7 +31,9 @@ class ServiceRecordRepository:
         stmt = (
             select(ServiceRecord)
             .where(ServiceRecord.staff_id == staff_id)
-            .order_by(ServiceRecord.date_first_appointment.desc(), ServiceRecord.id.desc())
+            .order_by(
+                ServiceRecord.date_first_appointment.desc(), ServiceRecord.id.desc()
+            )
         )
         return list(self.session.execute(stmt).scalars().all())
 
@@ -46,4 +48,3 @@ class ServiceRecordRepository:
     def count(self) -> int:
         stmt = select(func.count(ServiceRecord.id))
         return int(self.session.execute(stmt).scalar_one())
-

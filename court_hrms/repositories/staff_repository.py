@@ -19,7 +19,9 @@ class StaffRepository:
         return self.session.get(StaffProfile, staff_id)
 
     def get_by_personal_number(self, personal_number: str) -> StaffProfile | None:
-        stmt = select(StaffProfile).where(StaffProfile.personal_number == personal_number)
+        stmt = select(StaffProfile).where(
+            StaffProfile.personal_number == personal_number
+        )
         return self.session.execute(stmt).scalar_one_or_none()
 
     def get_by_cnic(self, cnic: str) -> StaffProfile | None:
@@ -33,4 +35,3 @@ class StaffRepository:
     def count(self) -> int:
         stmt = select(func.count(StaffProfile.id))
         return int(self.session.execute(stmt).scalar_one())
-

@@ -122,7 +122,9 @@ class ServiceRecordsPage(QWidget):
         self.promotion_date_input.setMaximumDate(QDate.currentDate().addYears(5))
         self.promotion_date_input.setDate(QDate.currentDate())
         self.promotion_date_input.setEnabled(False)
-        self.has_promotion_checkbox.toggled.connect(self.promotion_date_input.setEnabled)
+        self.has_promotion_checkbox.toggled.connect(
+            self.promotion_date_input.setEnabled
+        )
 
         self.merit_number_input = QLineEdit()
         self.merit_number_input.setPlaceholderText("Optional")
@@ -145,7 +147,9 @@ class ServiceRecordsPage(QWidget):
             col = (index % 2) * 2
             if label:
                 form_layout.addWidget(QLabel(label), row, col)
-            form_layout.addWidget(widget, row, col + 1 if label else col, 1, 1 if label else 2)
+            form_layout.addWidget(
+                widget, row, col + 1 if label else col, 1, 1 if label else 2
+            )
 
         form_layout.addWidget(QLabel("Remarks"), 4, 0)
         form_layout.addWidget(self.remarks_input, 4, 1, 1, 3)
@@ -195,7 +199,9 @@ class ServiceRecordsPage(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
         self.table.setAlternatingRowColors(True)
         self.table.setMinimumHeight(260)
         self.table.itemSelectionChanged.connect(self._load_selected_row)
@@ -222,16 +228,22 @@ class ServiceRecordsPage(QWidget):
             "bps": self.bps_input.value(),
             "employment_type": self.employment_type_input.currentText(),
             "employment_status": self.employment_status_input.currentText(),
-            "date_first_appointment": self._qdate_to_date(self.first_appointment_input.date()),
-            "date_current_promotion": self._qdate_to_date(self.promotion_date_input.date())
-            if self.has_promotion_checkbox.isChecked()
-            else None,
+            "date_first_appointment": self._qdate_to_date(
+                self.first_appointment_input.date()
+            ),
+            "date_current_promotion": (
+                self._qdate_to_date(self.promotion_date_input.date())
+                if self.has_promotion_checkbox.isChecked()
+                else None
+            ),
             "selection_merit_number": self.merit_number_input.text(),
             "remarks": self.remarks_input.toPlainText(),
         }
 
     def _search_staff(self) -> None:
-        ok, message, staff, record = self.controller.find_staff(self.staff_search_input.text())
+        ok, message, staff, record = self.controller.find_staff(
+            self.staff_search_input.text()
+        )
         if not ok:
             show_error(self, message, "Staff Search")
             return
@@ -245,7 +257,10 @@ class ServiceRecordsPage(QWidget):
 
     def _add_record(self) -> None:
         if self.selected_staff_id is None:
-            show_error(self, "Search and select a staff profile before adding a service record.")
+            show_error(
+                self,
+                "Search and select a staff profile before adding a service record.",
+            )
             return
 
         ok, message, record = self.controller.create_record(self._collect_form_data())
@@ -295,7 +310,9 @@ class ServiceRecordsPage(QWidget):
         self.bps_input.setValue(int(record.get("bps") or 1))
         self._set_combo(self.employment_type_input, record.get("employment_type"))
         self._set_combo(self.employment_status_input, record.get("employment_status"))
-        self._set_date(self.first_appointment_input, record.get("date_first_appointment"))
+        self._set_date(
+            self.first_appointment_input, record.get("date_first_appointment")
+        )
 
         promotion_date = record.get("date_current_promotion")
         self.has_promotion_checkbox.setChecked(promotion_date is not None)

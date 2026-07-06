@@ -66,7 +66,9 @@ class LoginWindow(QWidget):
 
         login_panel = QFrame()
         login_panel.setObjectName("LoginPanel")
-        login_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        login_panel.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
         login_layout = QVBoxLayout(login_panel)
         login_layout.setContentsMargins(36, 34, 36, 34)
         login_layout.setSpacing(14)
@@ -121,4 +123,3 @@ class LoginWindow(QWidget):
         self.username_input.clear()
         self.password_input.clear()
         self.username_input.setFocus()
-

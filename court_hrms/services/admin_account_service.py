@@ -66,4 +66,3 @@ class AdminAccountService:
         except IntegrityError as exc:
             raise ValidationError("Username already exists.") from exc
         return admin
-

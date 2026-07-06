@@ -50,5 +50,7 @@ class PostingRepository:
         return list(self.session.execute(stmt).scalars().all())
 
     def count_current(self) -> int:
-        stmt = select(func.count(PostingTransfer.id)).where(PostingTransfer.is_current.is_(True))
+        stmt = select(func.count(PostingTransfer.id)).where(
+            PostingTransfer.is_current.is_(True)
+        )
         return int(self.session.execute(stmt).scalar_one())

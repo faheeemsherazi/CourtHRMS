@@ -4,7 +4,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
-    QHBoxLayout,
     QLabel,
     QSizePolicy,
     QVBoxLayout,
@@ -62,7 +61,8 @@ class DashboardPage(QWidget):
 
         summary_text = QLabel(
             "This version supports secure administrator login, staff profile management, "
-            "service record management, and posting or transfer history for court staff."
+            "service record management, posting and transfer history, leave management, "
+            "seniority lists, HR reports, printing, and secure logout for court staff."
         )
         summary_text.setWordWrap(True)
         summary_text.setObjectName("Muted")
@@ -94,6 +94,9 @@ class DashboardPage(QWidget):
 
     def refresh(self) -> None:
         self.metric_labels["staff"].setText(str(self.staff_controller.count_profiles()))
-        self.metric_labels["service"].setText(str(self.service_record_controller.count_records()))
-        self.metric_labels["posting"].setText(str(self.posting_controller.count_current_postings()))
-
+        self.metric_labels["service"].setText(
+            str(self.service_record_controller.count_records())
+        )
+        self.metric_labels["posting"].setText(
+            str(self.posting_controller.count_current_postings())
+        )

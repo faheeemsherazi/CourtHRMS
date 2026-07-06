@@ -118,6 +118,80 @@ First create a staff profile and service record. Then search the staff member on
 | Blank transfer station | New Station blank | `Station name is required.` |
 | Transfer before current start date | Transfer Date before current posting Start Date | `Transfer date cannot be before the current posting start date.` |
 
+## Valid Leave Management Data
+
+First create the matching staff profile and service record. Then search the staff member on the Leave Management page.
+
+| Staff Personal # | Leave Year | Start Date | End Date | Calculated Days | Reason | Expected Balance |
+| --- | --- | --- | --- | --- | --- | --- |
+| `DC-ORZ-0001` | `2026` | `2026-01-01` | `2026-01-05` | `5` | `Family work` | Remaining becomes `20` |
+| `DC-ORZ-0002` | `2026` | `2026-03-10` | `2026-03-10` | `1` | `Personal work` | Remaining becomes `24` |
+| `DC-ORZ-0003` | `2026` | `2026-07-01` | `2026-07-25` | `25` | `Annual leave` | Remaining becomes `0` |
+
+## Invalid Leave Management Tests
+
+| Test | Input | Expected Error or Result |
+| --- | --- | --- |
+| No staff selected | Click `Process Leave` before staff search | `Search and select a staff profile before processing leave.` |
+| Unknown personal number | Search `UNKNOWN-001` | `No staff profile found for this personal number.` |
+| Blank reason | Valid dates but empty reason | `Reason is required.` |
+| End date before start | Start `2026-01-05`, End `2026-01-04` | `End date cannot be before start date.` |
+| Cross-year leave | Start `2026-12-31`, End `2027-01-01` | `A leave request cannot cross calendar years. Record each year separately.` |
+| 26-day request | Start `2026-01-01`, End `2026-01-26` | `Insufficient leave balance.` |
+| Exceed remaining balance | Record 5 days, then request 21 more days | `Insufficient leave balance.` and balance remains `20` |
+| Same-day leave | Start and End both `2026-03-10` | Saves as `1` day |
+| Restart persistence | Record 5 days, restart app, search same staff/year | Remaining still shows `20` |
+
+## Seniority List Testing Data
+
+Use the same designation for multiple active employees to verify official ranking.
+
+| Personal # | Name | Designation | Status | First Appointment | Promotion Date | Merit # | DOB | Expected Rule |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `DC-ORZ-0101` | `Senior First` | `Junior Clerk` | `Active` | `2010-01-01` | `2018-01-01` | `2` | `1980-01-01` | Earlier appointment ranks higher |
+| `DC-ORZ-0102` | `Junior First` | `Junior Clerk` | `Active` | `2012-01-01` | `2016-01-01` | `1` | `1975-01-01` | Later appointment ranks lower |
+| `DC-ORZ-0103` | `Promotion Tie A` | `Junior Clerk` | `Active` | `2010-01-01` | `2017-01-01` | `5` | `1982-01-01` | Earlier promotion wins tie |
+| `DC-ORZ-0104` | `Promotion Tie B` | `Junior Clerk` | `Active` | `2010-01-01` | `2019-01-01` | `1` | `1970-01-01` | Later promotion ranks lower |
+| `DC-ORZ-0105` | `Inactive Sample` | `Junior Clerk` | `Retired` | `2001-01-01` | blank | `1` | `1965-01-01` | Excluded because not Active |
+| `DC-ORZ-0106` | `Other Designation` | `Stenographer` | `Active` | `2000-01-01` | blank | `1` | `1960-01-01` | Not mixed into Junior Clerk list |
+
+Note: the UI requires Date of First Appointment for new service records. Missing-appointment exclusion is covered by automated tests and by upgraded/imported data scenarios.
+
+## Seniority List Tests
+
+| Test | Input | Expected Result |
+| --- | --- | --- |
+| Generate active designation list | Designation `Junior Clerk` | Only Active Junior Clerk records appear |
+| Appointment order | Earlier First Appointment vs later First Appointment | Earlier appointment has lower rank number |
+| Promotion tie | Same appointment, different promotion dates | Earlier promotion ranks higher |
+| Merit tie | Same appointment and promotion, merit `1` vs `5` | Merit `1` ranks higher |
+| Age tie | Same appointment, promotion, merit, different DOB | Older employee ranks higher |
+| Personal number tie | All other fields same | Lower Personal Number ranks higher |
+| Inactive employee | `Retired` or `Suspended` status | Excluded from active seniority list |
+| Other designation | Different designation | Not mixed into selected designation |
+
+## Reports and Printing Tests
+
+| Report | Filter | Expected Result |
+| --- | --- | --- |
+| Individual Staff Profile | Personal # `DC-ORZ-0001` | Preview shows identity, contact, service, posting, and leave summary |
+| Leave History | Personal # `DC-ORZ-0001`, Year `2026` | Totals match Leave Management balance |
+| Leave History All Years | Personal # `DC-ORZ-0001`, `All Years` | Shows all recorded leave rows |
+| Seniority List | Designation `Junior Clerk` | Ranks match Seniority Lists page |
+| PDF export | Any valid report | Non-empty PDF file is created |
+| Print cancel | Any valid report, click Print then Cancel | No error is shown |
+| Unknown personal number | Personal # `UNKNOWN-001` | `No records found for the supplied Personal Number.` |
+
+## Logout Tests
+
+| Test | Expected Result |
+| --- | --- |
+| Click `Logout` then `Cancel` | Main window remains open |
+| Click `Logout` then confirm | Main window closes and login window appears |
+| Login again after logout | Application remains stable |
+| Repeat login/logout five times | No duplicate windows or event loops |
+| Protected action after logout | Requires login again |
+
 ## Admin Account Tests
 
 | Test | Input | Expected Result |
@@ -141,4 +215,21 @@ First create a staff profile and service record. Then search the staff member on
 6. Add the first posting for `DC-ORZ-0001`.
 7. Execute one valid transfer.
 8. Try the invalid posting and transfer tests.
-9. Search `DC-ORZ-0001` on every page and confirm the saved data appears correctly in the table/register.
+9. Open `Leave Management`, search `DC-ORZ-0001`, record 5 days for 2026, and confirm remaining balance becomes 20.
+10. Attempt 21 additional leave days and confirm the request is blocked and no failed-history row appears.
+11. Open `Seniority Lists`, generate `Junior Clerk`, and confirm active staff ranking is deterministic.
+12. Open `Reports & Printing`, preview Individual Profile, Leave History, and Seniority List reports.
+13. Export one report to PDF and confirm the file is non-empty.
+14. Open Print, cancel the dialog, and confirm no error is shown.
+15. Logout, confirm the login screen returns, then login again.
+
+## Automated Verification Commands
+
+From the project root:
+
+```bash
+.venv/bin/python -m compileall court_hrms tests main.py
+.venv/bin/python -m pytest -q
+.venv/bin/python -m ruff check .
+.venv/bin/python -m black --check .
+```

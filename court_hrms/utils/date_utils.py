@@ -36,7 +36,9 @@ def coerce_date(value, field_name: str) -> date:
         try:
             return datetime.strptime(value.strip(), "%Y-%m-%d").date()
         except ValueError as exc:
-            raise ValueError(f"{field_name} must be a valid date in YYYY-MM-DD format.") from exc
+            raise ValueError(
+                f"{field_name} must be a valid date in YYYY-MM-DD format."
+            ) from exc
     raise ValueError(f"{field_name} is required.")
 
 
@@ -46,4 +48,3 @@ def format_date(value: date | datetime | None) -> str:
     if isinstance(value, datetime):
         value = value.date()
     return value.strftime("%Y-%m-%d")
-

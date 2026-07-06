@@ -47,6 +47,16 @@ class StaffProfile(Base):
         back_populates="staff",
         cascade="all, delete-orphan",
     )
+    annual_leave_accounts = relationship(
+        "AnnualLeaveAccount",
+        back_populates="staff",
+        passive_deletes=True,
+    )
+    leave_records = relationship(
+        "LeaveRecord",
+        back_populates="staff",
+        passive_deletes=True,
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -72,3 +82,9 @@ class StaffProfile(Base):
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
+
+
+# Imported after StaffProfile is defined so SQLAlchemy can resolve string relationships
+# even when this model module is imported directly by tests or scripts.
+from court_hrms.models.annual_leave_account import AnnualLeaveAccount  # noqa: E402,F401
+from court_hrms.models.leave_record import LeaveRecord  # noqa: E402,F401

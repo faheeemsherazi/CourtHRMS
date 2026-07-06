@@ -61,7 +61,9 @@ class ServiceRecordService:
         except (TypeError, ValueError):
             staff_id = None
         if staff is None:
-            errors.append("Staff profile must already exist before adding a service record.")
+            errors.append(
+                "Staff profile must already exist before adding a service record."
+            )
 
         designation = require_text(data, "designation", "Designation", errors)
         bps = validate_bps(data.get("bps"), errors)
@@ -130,4 +132,3 @@ class ServiceRecordService:
             "selection_merit_number": merit_number,
             "remarks": optional_text(data, "remarks"),
         }
-
