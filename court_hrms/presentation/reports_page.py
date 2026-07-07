@@ -288,7 +288,7 @@ class ReportsPage(QWidget):
             return
 
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        ReportDocumentBuilder.configure_printer(printer)
+        ReportDocumentBuilder.configure_printer(printer, report["html"])
         dialog = QPrintDialog(printer, self)
         dialog.setWindowTitle("Print HR Report")
         if dialog.exec() != QDialog.DialogCode.Accepted:

@@ -10,7 +10,7 @@ class ReportPreviewDialog:
     @staticmethod
     def show(parent: QWidget, html: str, title: str) -> None:
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        ReportDocumentBuilder.configure_printer(printer)
+        ReportDocumentBuilder.configure_printer(printer, html)
         document = ReportDocumentBuilder.build_document(html)
 
         dialog = QPrintPreviewDialog(printer, parent)

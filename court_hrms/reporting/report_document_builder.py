@@ -18,12 +18,19 @@ class ReportDocumentBuilder:
         return document
 
     @staticmethod
-    def configure_printer(printer: QPrinter) -> None:
+    def configure_printer(printer: QPrinter, html: str | None = None) -> None:
         printer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+        printer.setPageOrientation(ReportDocumentBuilder.page_orientation(html))
         printer.setPageMargins(
             QMarginsF(12, 12, 12, 12),
             QPageLayout.Unit.Millimeter,
         )
+
+    @staticmethod
+    def page_orientation(html: str | None) -> QPageLayout.Orientation:
+        if html and 'name="report-orientation" content="landscape"' in html:
+            return QPageLayout.Orientation.Landscape
+        return QPageLayout.Orientation.Portrait
 
     def export_pdf(self, html: str, output_path: str | Path) -> Path:
         output_path = ensure_pdf_suffix(output_path)
@@ -32,7 +39,7 @@ class ReportDocumentBuilder:
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
         printer.setOutputFileName(str(output_path))
-        self.configure_printer(printer)
+        self.configure_printer(printer, html)
 
         document = self.build_document(html)
         try:

@@ -9,6 +9,8 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QPageLayout
+from PySide6.QtPrintSupport import QPrinter
 from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import sessionmaker
 
@@ -24,6 +26,7 @@ from court_hrms.models import (
 )
 from court_hrms.reporting.report_document_builder import ReportDocumentBuilder
 from court_hrms.reporting.report_templates import (
+    build_professional_table,
     build_individual_profile_html,
     build_leave_history_html,
     build_posting_history_html,
@@ -298,6 +301,83 @@ class ReportServiceTest(unittest.TestCase):
 
         self.assertEqual(report.service_events[0]["event_type"], "Promotion")
         self.assertIn("PROM-1", html)
+
+    def test_service_book_posting_transfer_layout_is_split_and_landscape(self) -> None:
+        PostingService(self.session).execute_transfer(
+            {
+                "staff_id": self.staff_one.id,
+                "new_station": "Sessions Court Administrative Branch Orakzai",
+                "transfer_date": date(2020, 1, 1),
+                "order_number": "DC-ORZ/HR/Posting-Transfer/2020/15",
+                "order_date": date(2019, 12, 31),
+                "issuing_authority": "District & Sessions Judge, Orakzai",
+                "transfer_reason": "Administrative public interest posting order",
+            }
+        )
+
+        report = self.report_service.service_book_extract("PN-0001")
+        html = build_service_book_extract_html(report)
+
+        self.assertIn('name="report-orientation" content="landscape"', html)
+        self.assertIn("Posting / Transfer Order Details", html)
+        self.assertIn("Relieving / Joining / Remarks Details", html)
+        self.assertIn("Order<br>No.", html)
+        self.assertIn("Movement</th>", html)
+        self.assertNotIn("Movement Type</th>", html)
+        self.assertNotIn("Order Number</th>", html)
+
+    def test_narrow_report_layout_remains_portrait(self) -> None:
+        report = self.report_service.individual_profile("PN-0001")
+        html = build_individual_profile_html(report)
+
+        self.assertIn('name="report-orientation" content="portrait"', html)
+
+    def test_printer_uses_report_orientation_metadata(self) -> None:
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        ReportDocumentBuilder.configure_printer(
+            printer,
+            '<html><head><meta name="report-orientation" content="landscape"></head></html>',
+        )
+
+        self.assertEqual(
+            printer.pageLayout().orientation(),
+            QPageLayout.Orientation.Landscape,
+        )
+
+    def test_long_professional_tables_repeat_headers(self) -> None:
+        columns = [
+            "Serial",
+            "From Station",
+            "To Station",
+            "Movement Type",
+            "Order Number",
+            "Order Date",
+            "Effective Date",
+            "Issuing Authority",
+        ]
+        rows = [
+            [
+                index,
+                "District Court Orakzai",
+                "Sessions Court Orakzai",
+                "Transfer",
+                f"DC-ORZ/HR/{index}/2026",
+                date(2026, 7, 1),
+                date(2026, 7, 2),
+                "District & Sessions Judge, Orakzai",
+            ]
+            for index in range(1, 13)
+        ]
+
+        html = build_professional_table(
+            rows,
+            columns,
+            profile="posting_transfer_order",
+            landscape=True,
+        )
+
+        self.assertGreaterEqual(html.count("<thead><tr>"), 2)
+        self.assertIn("page-break-before: always", html)
 
     def test_employee_dossier_includes_leave_ledger(self) -> None:
         report = self.report_service.employee_dossier("PN-0001")

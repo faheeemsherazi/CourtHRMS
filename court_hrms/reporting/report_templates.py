@@ -20,24 +20,117 @@ body { font-family: "Times New Roman", serif; font-size: 10pt; color: #111827; }
 .title { font-size: 13pt; font-weight: bold; margin-top: 8px; }
 .meta { font-size: 9pt; color: #4b5563; margin-top: 4px; }
 h2 { font-size: 11pt; color: #0b1f3a; border-bottom: 1px solid #c9a227; margin: 14px 0 6px; }
+h3 { font-size: 10pt; color: #0b1f3a; margin: 8px 0 4px; }
 table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-th { background: #0b1f3a; color: #ffffff; font-weight: bold; }
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+th { background-color: #f3f4f6; color: #111827; font-weight: bold; }
 th, td { border: 1px solid #9ca3af; padding: 5px; vertical-align: top; }
 .label { width: 24%; font-weight: bold; background: #f3f4f6; }
+.report-table { table-layout: fixed; page-break-inside: auto; }
+.report-table th {
+    border-color: #9ca3af;
+    padding: 5px 4px;
+    line-height: 1.15;
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
+}
+.report-table td {
+    border-color: #cbd5e1;
+    padding: 5px 4px;
+    line-height: 1.2;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+}
+.report-table.compact th { font-size: 7.8pt; padding: 4px 3px; }
+.report-table.compact td { font-size: 7.4pt; padding: 4px 3px; }
+.report-table.standard th { font-size: 8.6pt; }
+.report-table.standard td { font-size: 8.2pt; }
+.report-table tr.alt td { background-color: #f8fafc; }
+.report-table .empty-table { text-align: center; color: #4b5563; }
+.report-table .number { text-align: center; }
 .footer { border-top: 1px solid #9ca3af; margin-top: 16px; padding-top: 6px; font-size: 9pt; color: #4b5563; text-align: center; }
 .policy { border: 1px solid #9ca3af; padding: 6px; background: #f9fafb; }
 """
 
 
+WIDE_COLUMN_THRESHOLD = 8
+
+
+HEADER_ALIASES = {
+    "Serial": "Sr.",
+    "Personal Number": "Personal No.",
+    "Movement Type": "Movement",
+    "Order Number": "Order No.",
+    "Order Date": "Order Dt.",
+    "Effective Date": "Effective Dt.",
+    "Relieving Date": "Relieving Dt.",
+    "Joining Date": "Joining Dt.",
+    "Charge Assumed": "Charge Date",
+    "Designation": "Desig.",
+    "Issuing Authority": "Authority",
+    "Start Date": "Start Dt.",
+    "End Date": "End Dt.",
+    "Number of Days": "Days",
+    "Recorded Date": "Recorded Dt.",
+    "Employment Type": "Employment",
+    "First Appointment": "First Appt.",
+    "Date of Birth": "DOB",
+    "First Entry in Government Service": "Govt Entry",
+    "First Entry in Judiciary": "Judiciary Entry",
+    "Current Post Date": "Post Dt.",
+    "Promotion Date": "Promotion Dt.",
+    "Retirement Date": "Retire Dt.",
+    "Current Posting": "Posting",
+    "Transfer Reason": "Reason",
+    "Event Type": "Event",
+    "Total Availed": "Availed",
+}
+
+
+NUMERIC_HEADERS = {
+    "Sr.",
+    "Rank",
+    "BPS",
+    "Year",
+    "Days",
+    "Merit",
+    "Credit",
+    "Debit",
+    "Balance",
+    "Entitlement",
+    "Availed",
+    "Remaining",
+}
+
+
+COLUMN_WIDTH_PROFILES = {
+    "individual_posting_history": [24, 13, 13, 34, 16],
+    "leave_summary": [18, 24, 24, 24],
+    "leave_history": [6, 12, 12, 9, 24, 25, 12],
+    "seniority_list": [3, 7, 10, 7, 5, 7, 3, 7.5, 7.5, 7.5, 7, 7.5, 7.5, 5, 8.5],
+    "service_records": [14, 5, 13, 9, 12, 11, 7, 29],
+    "service_events": [8, 10, 13, 9, 12, 5, 14, 23, 6],
+    "posting_transfer_order": [4, 16, 16, 13, 16, 10, 10, 15],
+    "posting_transfer_followup": [5, 10, 10, 10, 12, 5, 21, 8, 19],
+    "leave_ledger": [10, 11, 8, 8, 8, 17, 38],
+}
+
+
 def _base_document(title: str, generated_at, body: str) -> str:
+    orientation = "landscape" if _requires_landscape(body) else "portrait"
     return f"""
 <!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="report-orientation" content="{orientation}">
 <style>{REPORT_CSS}</style>
 </head>
-<body>
+<body class="report-{orientation}">
 <div class="header">
   <div class="court">DISTRICT COURT ORAKZAI</div>
   <div class="system">HUMAN RESOURCE MANAGEMENT SYSTEM</div>
@@ -51,6 +144,13 @@ def _base_document(title: str, generated_at, body: str) -> str:
 """
 
 
+def _requires_landscape(body: str) -> bool:
+    return (
+        'data-report-landscape="true"' in body
+        or 'name="report-orientation" content="landscape"' in body
+    )
+
+
 def _detail_table(rows: list[tuple[str, object]]) -> str:
     cells = []
     for label, value in rows:
@@ -60,24 +160,181 @@ def _detail_table(rows: list[tuple[str, object]]) -> str:
     return f"<table>{''.join(cells)}</table>"
 
 
-def _data_table(headers: list[str], rows: list[list[object]]) -> str:
-    header_html = "".join(f"<th>{safe_text(header)}</th>" for header in headers)
+def _data_table(
+    headers: list[str],
+    rows: list[list[object]],
+    *,
+    profile: str | None = None,
+    landscape: bool = False,
+) -> str:
+    return build_professional_table(rows, headers, profile=profile, landscape=landscape)
+
+
+def build_professional_table(
+    data: list[list[object]],
+    columns: list[str],
+    widths: list[float] | None = None,
+    *,
+    profile: str | None = None,
+    landscape: bool = False,
+    compact: bool | None = None,
+    empty_message: str = "No applicable records found.",
+) -> str:
+    column_widths = _column_widths(columns, widths, profile)
+    report_landscape = landscape or len(columns) > WIDE_COLUMN_THRESHOLD
+    use_compact = len(columns) > 6 if compact is None else compact
+    table_size_class = "compact" if use_compact else "standard"
+    base_table_attrs = [
+        'width="100%"',
+        f'class="report-table professional-table {table_size_class}"',
+        f'data-columns="{len(columns)}"',
+    ]
+    if report_landscape:
+        base_table_attrs.append('data-report-landscape="true"')
+
+    row_chunks = _table_row_chunks(
+        data,
+        _rows_per_repeated_header_table(len(columns), use_compact),
+    )
+    return "".join(
+        _render_professional_table(
+            chunk,
+            columns,
+            column_widths,
+            base_table_attrs,
+            empty_message,
+            page_break_before=index > 0,
+        )
+        for index, chunk in enumerate(row_chunks)
+    )
+
+
+def _render_professional_table(
+    data: list[list[object]],
+    columns: list[str],
+    column_widths: list[float],
+    base_table_attrs: list[str],
+    empty_message: str,
+    *,
+    page_break_before: bool = False,
+) -> str:
+    table_attrs = list(base_table_attrs)
+    if page_break_before:
+        table_attrs.append('style="page-break-before: always;"')
+
+    colgroup_html = "".join(
+        f'<col width="{width:.2f}%" style="width: {width:.2f}%;">'
+        for width in column_widths
+    )
+    header_html = "".join(
+        _header_cell(header, column_widths[index])
+        for index, header in enumerate(columns)
+    )
     row_html = []
-    for row in rows:
+    for index, row in enumerate(data, start=1):
+        row_class = ' class="alt"' if index % 2 == 0 else ""
+        row_values = _fit_row_to_columns(row, len(columns))
         row_html.append(
-            "<tr>" + "".join(f"<td>{_value(value)}</td>" for value in row) + "</tr>"
+            f"<tr{row_class}>"
+            + "".join(
+                (
+                    f'<td class="{_cell_class(columns[col_index])}" '
+                    f'width="{column_widths[col_index]:.2f}%" '
+                    f'style="width: {column_widths[col_index]:.2f}%; '
+                    'border: 1px solid #cbd5e1;">'
+                    f"{_value(value)}</td>"
+                )
+                for col_index, value in enumerate(row_values)
+            )
+            + "</tr>"
         )
-    if not rows:
+    if not data:
         row_html.append(
-            f'<tr><td colspan="{len(headers)}">No applicable records found.</td></tr>'
+            f'<tr><td class="empty-table" colspan="{len(columns)}">'
+            f"{safe_text(empty_message)}</td></tr>"
         )
-    return f"<table><thead><tr>{header_html}</tr></thead><tbody>{''.join(row_html)}</tbody></table>"
+    return (
+        f"<table {' '.join(table_attrs)}>"
+        f"<colgroup>{colgroup_html}</colgroup>"
+        f"<thead><tr>{header_html}</tr></thead>"
+        f"<tbody>{''.join(row_html)}</tbody>"
+        "</table>"
+    )
+
+
+def _table_row_chunks(
+    data: list[list[object]],
+    rows_per_chunk: int,
+) -> list[list[list[object]]]:
+    if not data:
+        return [[]]
+    return [
+        data[index : index + rows_per_chunk]
+        for index in range(0, len(data), rows_per_chunk)
+    ]
+
+
+def _rows_per_repeated_header_table(column_count: int, compact: bool) -> int:
+    if column_count >= 12:
+        return 8
+    if column_count >= 8:
+        return 10
+    if compact:
+        return 14
+    return 18
+
+
+def _column_widths(
+    columns: list[str],
+    widths: list[float] | None = None,
+    profile: str | None = None,
+) -> list[float]:
+    selected_widths = widths
+    if selected_widths is None and profile:
+        selected_widths = COLUMN_WIDTH_PROFILES.get(profile)
+    if not selected_widths or len(selected_widths) != len(columns):
+        selected_widths = [1.0 for _ in columns]
+
+    total = sum(max(width, 0) for width in selected_widths) or 1.0
+    return [(max(width, 0) / total) * 100 for width in selected_widths]
+
+
+def _fit_row_to_columns(row: list[object], column_count: int) -> list[object]:
+    fitted = list(row[:column_count])
+    if len(fitted) < column_count:
+        fitted.extend("" for _ in range(column_count - len(fitted)))
+    return fitted
+
+
+def _header_cell(header: str, width: float) -> str:
+    label = HEADER_ALIASES.get(header, header)
+    parts = label.split()
+    rendered = "<br>".join(safe_text(part) for part in parts) if parts else "—"
+    return (
+        f'<th width="{width:.2f}%" '
+        f'style="width: {width:.2f}%; border: 1px solid #9ca3af;">'
+        f"{rendered}</th>"
+    )
+
+
+def _cell_class(header: str) -> str:
+    label = HEADER_ALIASES.get(header, header)
+    if label in NUMERIC_HEADERS:
+        return "number"
+    return "text"
 
 
 def _value(value) -> str:
     if hasattr(value, "strftime"):
-        return report_date(value)
-    return safe_text(value)
+        return _allow_value_wrap(report_date(value))
+    return _allow_value_wrap(safe_text(value))
+
+
+def _allow_value_wrap(value: str) -> str:
+    return (
+        value.replace("/", "/<wbr>")
+        .replace(",", ",<wbr>")
+    )
 
 
 def build_individual_profile_html(report: IndividualProfileReport) -> str:
@@ -131,6 +388,7 @@ def build_individual_profile_html(report: IndividualProfileReport) -> str:
         ]
         for posting in report.posting_history
     ],
+    profile="individual_posting_history",
 )}
 <h2>Leave Summary</h2>
 {_data_table(
@@ -144,6 +402,7 @@ def build_individual_profile_html(report: IndividualProfileReport) -> str:
         ]
         for summary in report.leave_summaries
     ],
+    profile="leave_summary",
 )}
 """
     return _base_document("Individual Staff Profile", report.generated_at, body)
@@ -176,6 +435,7 @@ def build_leave_history_html(report: LeaveHistoryReport) -> str:
         ]
         for summary in report.summaries
     ],
+    profile="leave_summary",
 )}
 <h2>Leave History</h2>
 {_data_table(
@@ -192,6 +452,7 @@ def build_leave_history_html(report: LeaveHistoryReport) -> str:
         ]
         for index, row in enumerate(report.history, start=1)
     ],
+    profile="leave_history",
 )}
 """
     return _base_document("Leave History", report.generated_at, body)
@@ -246,6 +507,7 @@ def build_seniority_list_html(report: SeniorityListReport) -> str:
         ]
         for row in report.ranked
     ],
+    profile="seniority_list",
 )}
 """
     return _base_document("Seniority List", report.generated_at, body)
@@ -312,6 +574,7 @@ def build_service_book_extract_html(report: ServiceBookExtractReport) -> str:
         ]
         for row in report.service_records
     ],
+    profile="service_records",
 )}
 <h2>Service Events</h2>
 {_data_table(
@@ -330,6 +593,7 @@ def build_service_book_extract_html(report: ServiceBookExtractReport) -> str:
         ]
         for row in report.service_events
     ],
+    profile="service_events",
 )}
 <h2>Posting and Transfer History</h2>
 {_posting_table(report.posting_history)}
@@ -360,6 +624,7 @@ def build_employee_dossier_html(report: EmployeeDossierReport) -> str:
         ]
         for row in report.leave_history
     ],
+    profile="leave_history",
 )}
 <h2>Leave Ledger</h2>
 {_data_table(
@@ -376,32 +641,38 @@ def build_employee_dossier_html(report: EmployeeDossierReport) -> str:
         ]
         for row in report.leave_ledger
     ],
+    profile="leave_ledger",
 )}
 """
     return _base_document("Complete Employee Dossier", report.generated_at, body)
 
 
 def _posting_table(rows: list[dict]) -> str:
-    return _data_table(
-        [
-            "Serial",
-            "From Station",
-            "To Station",
-            "Movement Type",
-            "Order Number",
-            "Order Date",
-            "Effective Date",
-            "Relieving Date",
-            "Joining Date",
-            "Charge Assumed",
-            "Designation",
-            "BPS",
-            "Issuing Authority",
-            "Reason",
-            "Status",
-            "Remarks",
-        ],
-        [
+    order_columns = [
+        "Serial",
+        "From Station",
+        "To Station",
+        "Movement Type",
+        "Order Number",
+        "Order Date",
+        "Effective Date",
+        "Issuing Authority",
+    ]
+    followup_columns = [
+        "Serial",
+        "Relieving Date",
+        "Joining Date",
+        "Charge Assumed",
+        "Designation",
+        "BPS",
+        "Reason",
+        "Status",
+        "Remarks",
+    ]
+    order_rows = []
+    followup_rows = []
+    for index, row in enumerate(rows, start=1):
+        order_rows.append(
             [
                 index,
                 row.get("from_station"),
@@ -410,16 +681,36 @@ def _posting_table(rows: list[dict]) -> str:
                 row.get("order_number"),
                 row.get("order_date"),
                 row.get("effective_date") or row.get("start_date"),
+                row.get("issuing_authority"),
+            ]
+        )
+        followup_rows.append(
+            [
+                index,
                 row.get("relieving_date"),
                 row.get("joining_date"),
                 row.get("charge_assumed_date"),
                 row.get("to_designation") or row.get("from_designation"),
                 row.get("to_bps") or row.get("from_bps"),
-                row.get("issuing_authority"),
                 row.get("transfer_reason"),
                 row.get("status") or ("Current" if row.get("is_current") else ""),
                 row.get("remarks"),
             ]
-            for index, row in enumerate(rows, start=1)
-        ],
+        )
+
+    return (
+        "<h3>Posting / Transfer Order Details</h3>"
+        + build_professional_table(
+            order_rows,
+            order_columns,
+            profile="posting_transfer_order",
+            landscape=True,
+        )
+        + "<h3>Relieving / Joining / Remarks Details</h3>"
+        + build_professional_table(
+            followup_rows,
+            followup_columns,
+            profile="posting_transfer_followup",
+            landscape=True,
+        )
     )
