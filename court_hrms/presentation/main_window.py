@@ -97,6 +97,7 @@ class MainWindow(QMainWindow):
             self.admin_account_controller, self.admin
         )
         self.admin_account_page.account_updated.connect(self._handle_account_updated)
+        self._connect_employee_navigation()
 
         self.stack.addWidget(self.dashboard_page)
         self.stack.addWidget(self.staff_page)
@@ -138,6 +139,27 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(sidebar)
         root_layout.addWidget(self.stack, 1)
         self.setCentralWidget(root)
+
+    def _connect_employee_navigation(self) -> None:
+        for page in [
+            self.staff_page,
+            self.service_records_page,
+            self.postings_page,
+            self.leave_page,
+            self.seniority_page,
+        ]:
+            page.employee_navigation_requested.connect(self._handle_employee_navigation)
+
+    def _handle_employee_navigation(self, target: str, personal_number: str) -> None:
+        if target == "profile":
+            self._show_page(1)
+            self.staff_page.open_employee(personal_number)
+        elif target == "service":
+            self._show_page(2)
+            self.service_records_page.open_employee(personal_number)
+        elif target == "posting":
+            self._show_page(3)
+            self.postings_page.open_employee(personal_number)
 
     def _show_page(self, index: int) -> None:
         self.stack.setCurrentIndex(index)

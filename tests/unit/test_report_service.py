@@ -18,6 +18,7 @@ from court_hrms.models import (
     AnnualLeaveAccount,
     LeaveRecord,
     PostingTransfer,
+    ServiceEvent,
     ServiceRecord,
     StaffProfile,
 )
@@ -25,8 +26,12 @@ from court_hrms.reporting.report_document_builder import ReportDocumentBuilder
 from court_hrms.reporting.report_templates import (
     build_individual_profile_html,
     build_leave_history_html,
+    build_posting_history_html,
+    build_service_book_extract_html,
+    build_transfer_history_html,
 )
 from court_hrms.services.leave_service import LeaveService
+from court_hrms.services.posting_service import PostingService
 from court_hrms.services.report_service import ReportService
 from court_hrms.services.seniority_service import SeniorityService
 from court_hrms.utils.exceptions import ReportDataNotFoundError
@@ -245,6 +250,60 @@ class ReportServiceTest(unittest.TestCase):
         html = build_leave_history_html(report)
 
         self.assertIn("Family work", html)
+
+    def test_posting_history_report_returns_chronological_data(self) -> None:
+        report = self.report_service.posting_history("PN-0001")
+        html = build_posting_history_html(report)
+
+        self.assertEqual(
+            report.posting_history[0]["station_name"], "District Court Orakzai"
+        )
+        self.assertIn("Complete Posting History", html)
+
+    def test_transfer_history_report_includes_order_reference(self) -> None:
+        PostingService(self.session).execute_transfer(
+            {
+                "staff_id": self.staff_one.id,
+                "new_station": "Record Branch",
+                "transfer_date": date(2020, 1, 1),
+                "order_number": "TR-1",
+                "order_date": date(2019, 12, 31),
+                "issuing_authority": "District & Sessions Judge, Orakzai",
+            }
+        )
+
+        report = self.report_service.transfer_history("PN-0001")
+        html = build_transfer_history_html(report)
+
+        self.assertEqual(report.transfer_history[0]["order_number"], "TR-1")
+        self.assertIn("TR-1", html)
+
+    def test_service_book_report_includes_service_event(self) -> None:
+        self.session.add(
+            ServiceEvent(
+                staff_id=self.staff_one.id,
+                event_type="Promotion",
+                effective_date=date(2021, 1, 1),
+                order_number="PROM-1",
+                new_designation="Senior Clerk",
+                new_bps=14,
+                station="District Court Orakzai",
+                description="Promotion order.",
+            )
+        )
+        self.session.flush()
+
+        report = self.report_service.service_book_extract("PN-0001")
+        html = build_service_book_extract_html(report)
+
+        self.assertEqual(report.service_events[0]["event_type"], "Promotion")
+        self.assertIn("PROM-1", html)
+
+    def test_employee_dossier_includes_leave_ledger(self) -> None:
+        report = self.report_service.employee_dossier("PN-0001")
+
+        self.assertEqual(report.profile.staff["personal_number"], "PN-0001")
+        self.assertTrue(report.leave_ledger)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from PySide6.QtCore import QDate, Qt
+from PySide6.QtCore import QDate, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDateEdit,
@@ -10,28 +10,37 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QPushButton,
     QScrollArea,
     QSpinBox,
     QTableWidget,
-    QTableWidgetItem,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
+from court_hrms.controllers.employee_lookup_controller import EmployeeLookupController
 from court_hrms.controllers.leave_controller import LeaveController
+from court_hrms.presentation.employee_quick_view_dialog import EmployeeQuickViewDialog
+from court_hrms.presentation.table_utils import (
+    EmployeeSummaryPanel,
+    configure_professional_table,
+    make_table_item,
+)
 from court_hrms.utils.date_utils import format_date
+from court_hrms.utils.datetime_utils import format_pakistan_datetime
 from court_hrms.utils.message_box import show_error, show_info
 
 
 class LeaveManagementPage(QWidget):
+    employee_navigation_requested = Signal(str, str)
+
     def __init__(self, controller: LeaveController):
         super().__init__()
         self.controller = controller
+        self.lookup_controller = EmployeeLookupController()
         self.selected_staff_id: int | None = None
         self.selected_staff: dict | None = None
         self._build_ui()
@@ -56,6 +65,8 @@ class LeaveManagementPage(QWidget):
         layout.setSpacing(16)
 
         layout.addWidget(self._build_search_card())
+        self.employee_summary = EmployeeSummaryPanel()
+        layout.addWidget(self.employee_summary)
         layout.addLayout(self._build_summary_cards())
         layout.addWidget(self._build_leave_form())
         layout.addWidget(self._build_history_section(), 1)
@@ -225,10 +236,9 @@ class LeaveManagementPage(QWidget):
             QAbstractItemView.SelectionMode.SingleSelection
         )
         self.history_table.verticalHeader().setVisible(False)
-        self.history_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
-        self.history_table.setAlternatingRowColors(True)
+        configure_professional_table(self.history_table, settings_key="leave_history")
+        self.history_table.itemSelectionChanged.connect(self._load_selected_row_summary)
+        self.history_table.itemDoubleClicked.connect(self._open_quick_view_for_row)
         self.history_table.setMinimumHeight(240)
         layout.addWidget(self.history_table, 1)
         return group
@@ -252,7 +262,7 @@ class LeaveManagementPage(QWidget):
         if value is None:
             return ""
         if isinstance(value, datetime):
-            return value.strftime("%Y-%m-%d %H:%M")
+            return format_pakistan_datetime(value)
         return format_date(value)
 
     def _handle_year_changed(self) -> None:
@@ -296,6 +306,7 @@ class LeaveManagementPage(QWidget):
         self._render_staff(self.selected_staff, context.get("service_record"))
         self._render_summary(context["summary"])
         self._render_history(context["history"])
+        self._load_employee_summary(self.selected_staff_id)
         self.process_button.setEnabled(True)
 
     def _render_staff(self, staff: dict, service_record: dict | None) -> None:
@@ -337,13 +348,73 @@ class LeaveManagementPage(QWidget):
                 record.get("processed_by"),
             ]
             for column, value in enumerate(values):
-                text = "" if value is None else str(value)
-                item = QTableWidgetItem(text)
-                if text:
-                    item.setToolTip(text)
-                if column in (1, 4):
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                item = make_table_item(
+                    value,
+                    user_data=record if column == 0 else None,
+                    alignment=(
+                        Qt.AlignmentFlag.AlignCenter
+                        if column in (1, 4)
+                        else Qt.AlignmentFlag.AlignLeft
+                    ),
+                )
                 self.history_table.setItem(row, column, item)
+
+    def _load_selected_row_summary(self) -> None:
+        row = self.history_table.currentRow()
+        if row < 0:
+            if self.selected_staff_id is None:
+                self.employee_summary.clear()
+            return
+        item = self.history_table.item(row, 0)
+        record = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+        staff_id = (record or {}).get("staff_id") or self.selected_staff_id
+        self._load_employee_summary(staff_id)
+
+    def _load_employee_summary(self, staff_id: int | None) -> None:
+        if staff_id is None:
+            self.employee_summary.clear()
+            return
+
+        ok, _message, employee = self.lookup_controller.by_staff_id(staff_id)
+        if ok:
+            self.employee_summary.set_summary(employee)
+        else:
+            self.employee_summary.clear()
+
+    def _open_quick_view_for_row(self, *_args) -> None:
+        row = self.history_table.currentRow()
+        if row < 0:
+            return
+        item = self.history_table.item(row, 0)
+        record = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+        staff_id = (record or {}).get("staff_id") or self.selected_staff_id
+        if staff_id is None:
+            return
+
+        ok, message, employee = self.lookup_controller.by_staff_id(staff_id)
+        if not ok or employee is None:
+            show_error(self, message, "Employee Quick View")
+            return
+        self._show_employee_quick_view(employee)
+
+    def _show_employee_quick_view(self, employee: dict) -> None:
+        dialog = EmployeeQuickViewDialog(employee, self)
+        dialog.open_full_profile_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "profile", personal_number
+            )
+        )
+        dialog.open_service_history_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "service", personal_number
+            )
+        )
+        dialog.open_posting_history_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "posting", personal_number
+            )
+        )
+        dialog.exec()
 
     def _refresh_selected_year(self) -> None:
         if self.selected_staff_id is None:
@@ -416,6 +487,7 @@ class LeaveManagementPage(QWidget):
         self.designation_display.clear()
         self.bps_display.clear()
         self.status_display.clear()
+        self.employee_summary.clear()
         self._render_summary(
             {
                 "leave_year": (

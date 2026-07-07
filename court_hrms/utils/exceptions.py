@@ -41,3 +41,15 @@ class AuthenticationRequiredError(ValidationError):
 
 class DatabaseOperationError(ApplicationError):
     """Raised for logged database boundary failures."""
+
+
+class BackupError(ApplicationError):
+    """Raised when a verified backup cannot be created."""
+
+
+class RestoreError(ApplicationError):
+    """Raised when a backup restore cannot be safely completed."""
+
+
+class AttachmentError(ApplicationError):
+    """Raised when attachment validation or packaging fails."""

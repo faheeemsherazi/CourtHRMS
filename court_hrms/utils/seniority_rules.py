@@ -17,6 +17,12 @@ class SeniorityCandidate:
     selection_merit_number: int | None
     date_of_birth: date | None
     current_posting: str | None
+    qualification: str | None = None
+    first_government_entry: date | None = None
+    first_judiciary_entry: date | None = None
+    current_post_date: date | None = None
+    retirement_date: date | None = None
+    remarks: str | None = None
 
 
 @dataclass(frozen=True)
@@ -29,6 +35,7 @@ class SeniorityExclusion:
 
 @dataclass(frozen=True)
 class SeniorityRankRow:
+    staff_id: int
     rank: int
     personal_number: str
     full_name: str
@@ -40,20 +47,34 @@ class SeniorityRankRow:
     selection_merit_number: int | None
     date_of_birth: date | None
     current_posting: str | None
+    qualification: str | None = None
+    first_government_entry: date | None = None
+    first_judiciary_entry: date | None = None
+    current_post_date: date | None = None
+    retirement_date: date | None = None
+    remarks: str | None = None
 
     def to_dict(self) -> dict:
         return {
+            "staff_id": self.staff_id,
             "rank": self.rank,
             "personal_number": self.personal_number,
             "full_name": self.full_name,
             "father_name": self.father_name,
+            "qualification": self.qualification,
             "designation": self.designation,
             "bps": self.bps,
             "date_first_appointment": self.date_first_appointment,
             "date_current_promotion": self.date_current_promotion,
+            "first_government_entry": self.first_government_entry,
+            "first_judiciary_entry": self.first_judiciary_entry,
+            "current_post_date": self.current_post_date,
+            "promotion_date": self.date_current_promotion,
             "selection_merit_number": self.selection_merit_number,
             "date_of_birth": self.date_of_birth,
+            "retirement_date": self.retirement_date,
             "current_posting": self.current_posting,
+            "remarks": self.remarks,
         }
 
 
@@ -120,6 +141,7 @@ def rank_seniority_candidates(
 
     ranked = [
         SeniorityRankRow(
+            staff_id=candidate.staff_id,
             rank=index,
             personal_number=candidate.personal_number,
             full_name=candidate.full_name,
@@ -131,6 +153,16 @@ def rank_seniority_candidates(
             selection_merit_number=candidate.selection_merit_number,
             date_of_birth=candidate.date_of_birth,
             current_posting=candidate.current_posting,
+            qualification=candidate.qualification,
+            first_government_entry=(
+                candidate.first_government_entry or candidate.date_first_appointment
+            ),
+            first_judiciary_entry=(
+                candidate.first_judiciary_entry or candidate.date_first_appointment
+            ),
+            current_post_date=candidate.current_post_date,
+            retirement_date=candidate.retirement_date,
+            remarks=candidate.remarks,
         )
         for index, candidate in enumerate(
             sorted(eligible, key=seniority_sort_key), start=1

@@ -12,7 +12,10 @@ from court_hrms.database.db import Base
 from court_hrms.models import (
     Admin,
     AnnualLeaveAccount,
+    LeaveLedgerEntry,
+    LeavePolicy,
     LeaveRecord,
+    LeaveType,
     StaffProfile,
 )
 from court_hrms.services.leave_service import LeaveService
@@ -89,6 +92,15 @@ class LeaveServiceTest(unittest.TestCase):
             self.session.execute(select(func.count(LeaveRecord.id))).scalar_one()
         )
 
+    def _ledger_entries(self) -> list[LeaveLedgerEntry]:
+        return list(
+            self.session.execute(
+                select(LeaveLedgerEntry).order_by(LeaveLedgerEntry.id.asc())
+            )
+            .scalars()
+            .all()
+        )
+
     def test_new_staff_year_account_defaults_to_25_days(self) -> None:
         summary = self.service.get_account_summary(self.staff.id, 2026)
 
@@ -102,6 +114,45 @@ class LeaveServiceTest(unittest.TestCase):
         self.assertEqual(result["summary"]["availed_days"], 1)
         self.assertEqual(result["summary"]["remaining_days"], 24)
         self.assertEqual(self._record_count(), 1)
+
+    def test_leave_processing_creates_opening_and_debit_ledger_entries(self) -> None:
+        self.service.process_leave(self._leave_payload(end_date=date(2026, 1, 3)))
+
+        entries = self._ledger_entries()
+
+        self.assertEqual(
+            [entry.entry_type for entry in entries], ["Opening Balance", "Debit"]
+        )
+        self.assertEqual(entries[0].credit_days, 25)
+        self.assertEqual(entries[0].balance_after, 25)
+        self.assertEqual(entries[1].debit_days, 3)
+        self.assertEqual(entries[1].balance_after, 22)
+
+    def test_configured_legacy_policy_controls_new_account_entitlement(self) -> None:
+        leave_type = LeaveType(
+            code="ANNUAL_LEGACY",
+            name="Annual Leave (Legacy SRS)",
+        )
+        self.session.add(leave_type)
+        self.session.flush()
+        self.session.add(
+            LeavePolicy(
+                leave_type_id=leave_type.id,
+                policy_name="Test Annual Leave - 30 Days",
+                entitlement_days=30,
+                is_active=True,
+            )
+        )
+        self.session.flush()
+
+        summary = self.service.get_account_summary(self.staff.id, 2026)
+        result = self.service.process_leave(
+            self._leave_payload(end_date=date(2026, 1, 30))
+        )
+
+        self.assertEqual(summary["entitlement_days"], 30)
+        self.assertEqual(result["summary"]["entitlement_days"], 30)
+        self.assertEqual(result["summary"]["remaining_days"], 0)
 
     def test_exactly_25_days_is_accepted(self) -> None:
         result = self.service.process_leave(

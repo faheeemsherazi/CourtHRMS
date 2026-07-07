@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from PySide6.QtCore import QDate, Qt
+from PySide6.QtCore import QDate, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -12,20 +12,25 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QPushButton,
     QScrollArea,
     QSpinBox,
     QTableWidget,
-    QTableWidgetItem,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
+from court_hrms.controllers.employee_lookup_controller import EmployeeLookupController
 from court_hrms.controllers.service_record_controller import ServiceRecordController
+from court_hrms.presentation.employee_quick_view_dialog import EmployeeQuickViewDialog
+from court_hrms.presentation.table_utils import (
+    EmployeeSummaryPanel,
+    configure_professional_table,
+    make_table_item,
+)
 from court_hrms.utils.date_utils import format_date
 from court_hrms.utils.message_box import show_error, show_info
 from court_hrms.utils.validators import (
@@ -36,9 +41,12 @@ from court_hrms.utils.validators import (
 
 
 class ServiceRecordsPage(QWidget):
+    employee_navigation_requested = Signal(str, str)
+
     def __init__(self, controller: ServiceRecordController):
         super().__init__()
         self.controller = controller
+        self.lookup_controller = EmployeeLookupController()
         self.selected_staff_id: int | None = None
         self.current_record_id: int | None = None
         self._build_ui()
@@ -179,6 +187,9 @@ class ServiceRecordsPage(QWidget):
         table_title.setObjectName("SectionTitle")
         layout.addWidget(table_title)
 
+        self.employee_summary = EmployeeSummaryPanel()
+        layout.addWidget(self.employee_summary)
+
         self.table = QTableWidget()
         self.table.setColumnCount(9)
         self.table.setHorizontalHeaderLabels(
@@ -199,12 +210,10 @@ class ServiceRecordsPage(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
-        self.table.setAlternatingRowColors(True)
         self.table.setMinimumHeight(260)
+        configure_professional_table(self.table, settings_key="service_record_register")
         self.table.itemSelectionChanged.connect(self._load_selected_row)
+        self.table.itemDoubleClicked.connect(self._open_quick_view_for_row)
         layout.addWidget(self.table, 1)
 
     @staticmethod
@@ -254,6 +263,11 @@ class ServiceRecordsPage(QWidget):
             self._load_record(record)
         else:
             self._clear_record_fields(keep_staff=True)
+            self._load_employee_summary(self.selected_staff_id)
+
+    def open_employee(self, personal_number: str) -> None:
+        self.staff_search_input.setText(personal_number)
+        self._search_staff()
 
     def _add_record(self) -> None:
         if self.selected_staff_id is None:
@@ -298,6 +312,7 @@ class ServiceRecordsPage(QWidget):
         record = item.data(Qt.ItemDataRole.UserRole)
         if record:
             self._load_record(record)
+            self._load_employee_summary(record.get("staff_id"))
 
     def _load_record(self, record: dict) -> None:
         self.current_record_id = record.get("id")
@@ -323,6 +338,53 @@ class ServiceRecordsPage(QWidget):
         self.merit_number_input.setText("" if merit is None else str(merit))
         self.remarks_input.setPlainText(record.get("remarks") or "")
         self.update_button.setEnabled(True)
+        self._load_employee_summary(self.selected_staff_id)
+
+    def _load_employee_summary(self, staff_id: int | None) -> None:
+        if staff_id is None:
+            self.employee_summary.clear()
+            return
+
+        ok, _message, employee = self.lookup_controller.by_staff_id(staff_id)
+        if ok:
+            self.employee_summary.set_summary(employee)
+        else:
+            self.employee_summary.clear()
+
+    def _open_quick_view_for_row(self, *_args) -> None:
+        row = self.table.currentRow()
+        if row < 0:
+            return
+        item = self.table.item(row, 0)
+        if item is None:
+            return
+        record = item.data(Qt.ItemDataRole.UserRole)
+        if not record:
+            return
+        ok, message, employee = self.lookup_controller.by_staff_id(record["staff_id"])
+        if not ok or employee is None:
+            show_error(self, message, "Employee Quick View")
+            return
+        self._show_employee_quick_view(employee)
+
+    def _show_employee_quick_view(self, employee: dict) -> None:
+        dialog = EmployeeQuickViewDialog(employee, self)
+        dialog.open_full_profile_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "profile", personal_number
+            )
+        )
+        dialog.open_service_history_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "service", personal_number
+            )
+        )
+        dialog.open_posting_history_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "posting", personal_number
+            )
+        )
+        dialog.exec()
 
     def _clear_record_fields(self, keep_staff: bool = False) -> None:
         self.current_record_id = None
@@ -330,6 +392,7 @@ class ServiceRecordsPage(QWidget):
             self.selected_staff_id = None
             self.staff_search_input.clear()
             self.staff_status.setText("No staff selected")
+            self.employee_summary.clear()
         self.designation_input.setCurrentIndex(0)
         self.bps_input.setValue(1)
         self.employment_type_input.setCurrentIndex(0)
@@ -344,6 +407,7 @@ class ServiceRecordsPage(QWidget):
     def clear_form(self) -> None:
         self._clear_record_fields(keep_staff=False)
         self.table.clearSelection()
+        self.employee_summary.clear()
 
     def refresh(self) -> None:
         records = self.controller.list_records()
@@ -361,7 +425,8 @@ class ServiceRecordsPage(QWidget):
                 format_date(record.get("date_current_promotion")),
             ]
             for column, value in enumerate(values):
-                item = QTableWidgetItem("" if value is None else str(value))
-                if column == 0:
-                    item.setData(Qt.ItemDataRole.UserRole, record)
+                item = make_table_item(
+                    value,
+                    user_data=record if column == 0 else None,
+                )
                 self.table.setItem(row, column, item)

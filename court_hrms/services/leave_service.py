@@ -3,6 +3,8 @@ from __future__ import annotations
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from court_hrms.models.annual_leave_account import AnnualLeaveAccount
+from court_hrms.models.leave_ledger import LeaveLedgerEntry
 from court_hrms.models.leave_record import LeaveRecord
 from court_hrms.repositories.admin_repository import AdminRepository
 from court_hrms.repositories.leave_repository import LeaveRepository
@@ -61,14 +63,15 @@ class LeaveService:
     def get_account_summary(self, staff_id: int, leave_year: int) -> dict:
         leave_year = validate_leave_year(leave_year)
         account = self.repository.get_account(staff_id, leave_year)
+        entitlement_days = self._entitlement_for_year(leave_year)
         if account is None:
             return {
                 "id": None,
                 "staff_id": staff_id,
                 "leave_year": leave_year,
-                "entitlement_days": ANNUAL_LEAVE_ENTITLEMENT_DAYS,
+                "entitlement_days": entitlement_days,
                 "availed_days": 0,
-                "remaining_days": ANNUAL_LEAVE_ENTITLEMENT_DAYS,
+                "remaining_days": entitlement_days,
             }
         return account.to_dict()
 
@@ -82,6 +85,14 @@ class LeaveService:
         return [
             account.leave_year
             for account in self.repository.list_accounts_for_staff(staff_id)
+        ]
+
+    def list_ledger(self, staff_id: int, leave_year: int | None = None) -> list[dict]:
+        if leave_year is not None:
+            leave_year = validate_leave_year(leave_year)
+        return [
+            entry.to_dict()
+            for entry in self.repository.list_ledger_entries(staff_id, leave_year)
         ]
 
     def process_leave(self, data: dict) -> dict:
@@ -124,11 +135,26 @@ class LeaveService:
         remarks = clean_text(data.get("remarks"))
 
         try:
-            account = self.repository.get_or_create_account(
-                staff_id,
-                leave_year,
-                ANNUAL_LEAVE_ENTITLEMENT_DAYS,
+            account, account_created = self._get_or_create_annual_account(
+                staff_id, leave_year
             )
+            leave_type = self.repository.get_legacy_annual_leave_type()
+            if account_created:
+                self.repository.add_ledger_entry(
+                    LeaveLedgerEntry(
+                        staff_id=staff_id,
+                        leave_type_id=leave_type.id if leave_type else None,
+                        leave_account_id=account.id,
+                        entry_date=start_date,
+                        entry_type="Opening Balance",
+                        credit_days=account.entitlement_days,
+                        debit_days=0,
+                        balance_after=account.remaining_days,
+                        reference=f"Annual Leave {leave_year}",
+                        remarks="Opening balance from configured legacy annual leave policy.",
+                        created_by=admin_id,
+                    )
+                )
             remaining_days = account.remaining_days
             if requested_days > remaining_days:
                 raise LeaveBalanceError(
@@ -150,6 +176,21 @@ class LeaveService:
             self.repository.add_record(record)
             account.availed_days += requested_days
             self.session.flush()
+            self.repository.add_ledger_entry(
+                LeaveLedgerEntry(
+                    staff_id=staff_id,
+                    leave_type_id=leave_type.id if leave_type else None,
+                    leave_account_id=account.id,
+                    entry_date=start_date,
+                    entry_type="Debit",
+                    credit_days=0,
+                    debit_days=requested_days,
+                    balance_after=account.remaining_days,
+                    reference=f"LeaveRecord:{record.id}",
+                    remarks=reason,
+                    created_by=admin_id,
+                )
+            )
         except (LeaveBalanceError, ValidationError):
             raise
         except IntegrityError as exc:
@@ -179,6 +220,27 @@ class LeaveService:
             "record": self._record_to_dict(record),
             "summary": account.to_dict(),
         }
+
+    def _get_or_create_annual_account(
+        self, staff_id: int, leave_year: int
+    ) -> tuple[AnnualLeaveAccount, bool]:
+        account = self.repository.get_account(staff_id, leave_year)
+        if account is not None:
+            return account, False
+
+        account = AnnualLeaveAccount(
+            staff_id=staff_id,
+            leave_year=leave_year,
+            entitlement_days=self._entitlement_for_year(leave_year),
+            availed_days=0,
+        )
+        return self.repository.add_account(account), True
+
+    def _entitlement_for_year(self, leave_year: int) -> int:
+        policy = self.repository.get_active_legacy_policy(leave_year)
+        if policy is None:
+            return ANNUAL_LEAVE_ENTITLEMENT_DAYS
+        return int(policy.entitlement_days)
 
     def _require_staff_id(self, raw_staff_id) -> int:
         try:

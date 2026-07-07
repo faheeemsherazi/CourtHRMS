@@ -2,35 +2,45 @@ from __future__ import annotations
 
 from datetime import date
 
-from PySide6.QtCore import QDate, Qt
+from PySide6.QtCore import QDate, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QDateEdit,
     QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QPushButton,
     QScrollArea,
     QTableWidget,
-    QTableWidgetItem,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
+from court_hrms.controllers.employee_lookup_controller import EmployeeLookupController
 from court_hrms.controllers.posting_controller import PostingController
+from court_hrms.presentation.employee_quick_view_dialog import EmployeeQuickViewDialog
+from court_hrms.presentation.table_utils import (
+    EmployeeSummaryPanel,
+    configure_professional_table,
+    make_table_item,
+)
 from court_hrms.utils.date_utils import format_date
+from court_hrms.utils.master_data import MOVEMENT_STATUSES, TRANSFER_CATEGORIES
 from court_hrms.utils.message_box import confirm, show_error, show_info
 
 
 class PostingsTransfersPage(QWidget):
+    employee_navigation_requested = Signal(str, str)
+
     def __init__(self, controller: PostingController):
         super().__init__()
         self.controller = controller
+        self.lookup_controller = EmployeeLookupController()
         self.selected_staff_id: int | None = None
         self.current_posting: dict | None = None
         self._build_ui()
@@ -74,6 +84,9 @@ class PostingsTransfersPage(QWidget):
         search_layout.addWidget(self.staff_status, 2)
         layout.addWidget(search_card)
 
+        self.employee_summary = EmployeeSummaryPanel()
+        layout.addWidget(self.employee_summary)
+
         current_group = QGroupBox("Current Posting")
         current_layout = QGridLayout(current_group)
         current_layout.setHorizontalSpacing(14)
@@ -81,17 +94,29 @@ class PostingsTransfersPage(QWidget):
 
         self.current_station_display = QLineEdit()
         self.current_station_display.setReadOnly(True)
+        self.current_designation_display = QLineEdit()
+        self.current_designation_display.setReadOnly(True)
+        self.current_bps_display = QLineEdit()
+        self.current_bps_display.setReadOnly(True)
         self.current_start_display = QLineEdit()
         self.current_start_display.setReadOnly(True)
         self.current_end_display = QLineEdit()
         self.current_end_display.setReadOnly(True)
+        self.current_order_display = QLineEdit()
+        self.current_order_display.setReadOnly(True)
 
         current_layout.addWidget(QLabel("Current Station"), 0, 0)
         current_layout.addWidget(self.current_station_display, 0, 1)
-        current_layout.addWidget(QLabel("Start Date"), 0, 2)
-        current_layout.addWidget(self.current_start_display, 0, 3)
-        current_layout.addWidget(QLabel("End Date"), 1, 0)
-        current_layout.addWidget(self.current_end_display, 1, 1)
+        current_layout.addWidget(QLabel("Designation"), 0, 2)
+        current_layout.addWidget(self.current_designation_display, 0, 3)
+        current_layout.addWidget(QLabel("BPS"), 1, 0)
+        current_layout.addWidget(self.current_bps_display, 1, 1)
+        current_layout.addWidget(QLabel("Since"), 1, 2)
+        current_layout.addWidget(self.current_start_display, 1, 3)
+        current_layout.addWidget(QLabel("Order Number"), 2, 0)
+        current_layout.addWidget(self.current_order_display, 2, 1)
+        current_layout.addWidget(QLabel("End Date"), 2, 2)
+        current_layout.addWidget(self.current_end_display, 2, 3)
         layout.addWidget(current_group)
 
         forms_row = QHBoxLayout()
@@ -104,6 +129,9 @@ class PostingsTransfersPage(QWidget):
 
         self.first_station_input = QLineEdit()
         self.first_start_date_input = self._date_edit()
+        self.first_order_number_input = QLineEdit()
+        self.first_order_date_input = self._optional_date_edit()
+        self.first_issuing_authority_input = QLineEdit()
         self.first_reason_input = QTextEdit()
         self.first_reason_input.setFixedHeight(72)
         self.first_remarks_input = QTextEdit()
@@ -113,15 +141,21 @@ class PostingsTransfersPage(QWidget):
         first_layout.addWidget(self.first_station_input, 0, 1)
         first_layout.addWidget(QLabel("Start Date"), 1, 0)
         first_layout.addWidget(self.first_start_date_input, 1, 1)
-        first_layout.addWidget(QLabel("Reason"), 2, 0)
-        first_layout.addWidget(self.first_reason_input, 2, 1)
-        first_layout.addWidget(QLabel("Remarks"), 3, 0)
-        first_layout.addWidget(self.first_remarks_input, 3, 1)
+        first_layout.addWidget(QLabel("Order Number"), 2, 0)
+        first_layout.addWidget(self.first_order_number_input, 2, 1)
+        first_layout.addWidget(QLabel("Order Date"), 3, 0)
+        first_layout.addWidget(self.first_order_date_input, 3, 1)
+        first_layout.addWidget(QLabel("Issuing Authority"), 4, 0)
+        first_layout.addWidget(self.first_issuing_authority_input, 4, 1)
+        first_layout.addWidget(QLabel("Reason"), 5, 0)
+        first_layout.addWidget(self.first_reason_input, 5, 1)
+        first_layout.addWidget(QLabel("Remarks"), 6, 0)
+        first_layout.addWidget(self.first_remarks_input, 6, 1)
 
         add_first_button = QPushButton("Add First Posting")
         add_first_button.setObjectName("GoldButton")
         add_first_button.clicked.connect(self._add_first_posting)
-        first_layout.addWidget(add_first_button, 4, 0, 1, 2)
+        first_layout.addWidget(add_first_button, 7, 0, 1, 2)
 
         transfer_group = QGroupBox("Execute Transfer")
         transfer_layout = QGridLayout(transfer_group)
@@ -130,6 +164,17 @@ class PostingsTransfersPage(QWidget):
 
         self.new_station_input = QLineEdit()
         self.transfer_date_input = self._date_edit()
+        self.transfer_order_number_input = QLineEdit()
+        self.transfer_order_date_input = self._optional_date_edit()
+        self.transfer_issuing_authority_input = QLineEdit()
+        self.relieving_date_input = self._optional_date_edit()
+        self.joining_date_input = self._optional_date_edit()
+        self.charge_assumed_date_input = self._optional_date_edit()
+        self.transfer_category_input = QComboBox()
+        self.transfer_category_input.addItems([""] + list(TRANSFER_CATEGORIES))
+        self.transfer_status_input = QComboBox()
+        self.transfer_status_input.addItems(list(MOVEMENT_STATUSES))
+        self.transfer_status_input.setCurrentText("Completed")
         self.transfer_reason_input = QTextEdit()
         self.transfer_reason_input.setFixedHeight(72)
         self.transfer_remarks_input = QTextEdit()
@@ -139,15 +184,31 @@ class PostingsTransfersPage(QWidget):
         transfer_layout.addWidget(self.new_station_input, 0, 1)
         transfer_layout.addWidget(QLabel("Transfer Date"), 1, 0)
         transfer_layout.addWidget(self.transfer_date_input, 1, 1)
-        transfer_layout.addWidget(QLabel("Reason"), 2, 0)
-        transfer_layout.addWidget(self.transfer_reason_input, 2, 1)
-        transfer_layout.addWidget(QLabel("Remarks"), 3, 0)
-        transfer_layout.addWidget(self.transfer_remarks_input, 3, 1)
+        transfer_layout.addWidget(QLabel("Order Number"), 2, 0)
+        transfer_layout.addWidget(self.transfer_order_number_input, 2, 1)
+        transfer_layout.addWidget(QLabel("Order Date"), 3, 0)
+        transfer_layout.addWidget(self.transfer_order_date_input, 3, 1)
+        transfer_layout.addWidget(QLabel("Issuing Authority"), 4, 0)
+        transfer_layout.addWidget(self.transfer_issuing_authority_input, 4, 1)
+        transfer_layout.addWidget(QLabel("Relieving Date"), 5, 0)
+        transfer_layout.addWidget(self.relieving_date_input, 5, 1)
+        transfer_layout.addWidget(QLabel("Joining Date"), 6, 0)
+        transfer_layout.addWidget(self.joining_date_input, 6, 1)
+        transfer_layout.addWidget(QLabel("Charge Assumed"), 7, 0)
+        transfer_layout.addWidget(self.charge_assumed_date_input, 7, 1)
+        transfer_layout.addWidget(QLabel("Transfer Category"), 8, 0)
+        transfer_layout.addWidget(self.transfer_category_input, 8, 1)
+        transfer_layout.addWidget(QLabel("Status"), 9, 0)
+        transfer_layout.addWidget(self.transfer_status_input, 9, 1)
+        transfer_layout.addWidget(QLabel("Reason"), 10, 0)
+        transfer_layout.addWidget(self.transfer_reason_input, 10, 1)
+        transfer_layout.addWidget(QLabel("Remarks"), 11, 0)
+        transfer_layout.addWidget(self.transfer_remarks_input, 11, 1)
 
         transfer_button = QPushButton("Execute Transfer")
         transfer_button.setObjectName("PrimaryButton")
         transfer_button.clicked.connect(self._execute_transfer)
-        transfer_layout.addWidget(transfer_button, 4, 0, 1, 2)
+        transfer_layout.addWidget(transfer_button, 12, 0, 1, 2)
 
         forms_row.addWidget(first_group, 1)
         forms_row.addWidget(transfer_group, 1)
@@ -158,9 +219,20 @@ class PostingsTransfersPage(QWidget):
         layout.addWidget(table_title)
 
         self.history_table = QTableWidget()
-        self.history_table.setColumnCount(7)
+        self.history_table.setColumnCount(10)
         self.history_table.setHorizontalHeaderLabels(
-            ["ID", "Station", "Start Date", "End Date", "Current", "Reason", "Remarks"]
+            [
+                "ID",
+                "Movement",
+                "Station",
+                "Start Date",
+                "End Date",
+                "Order Number",
+                "Status",
+                "Current",
+                "Reason",
+                "Remarks",
+            ]
         )
         self.history_table.setColumnHidden(0, True)
         self.history_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -171,10 +243,9 @@ class PostingsTransfersPage(QWidget):
             QAbstractItemView.SelectionMode.SingleSelection
         )
         self.history_table.verticalHeader().setVisible(False)
-        self.history_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
-        self.history_table.setAlternatingRowColors(True)
+        configure_professional_table(self.history_table, settings_key="posting_history")
+        self.history_table.itemSelectionChanged.connect(self._load_selected_row_summary)
+        self.history_table.itemDoubleClicked.connect(self._open_quick_view_for_row)
         self.history_table.setMinimumHeight(220)
         layout.addWidget(self.history_table, 1)
 
@@ -192,10 +263,31 @@ class PostingsTransfersPage(QWidget):
         return edit
 
     @staticmethod
+    def _optional_date_edit() -> QDateEdit:
+        edit = QDateEdit()
+        edit.setCalendarPopup(True)
+        edit.setDisplayFormat("yyyy-MM-dd")
+        edit.setMinimumDate(QDate(1900, 1, 1))
+        edit.setMaximumDate(QDate.currentDate().addYears(20))
+        edit.setSpecialValueText("")
+        edit.setDate(QDate(1900, 1, 1))
+        return edit
+
+    @staticmethod
     def _qdate_to_date(value: QDate) -> date:
         return date(value.year(), value.month(), value.day())
 
+    @staticmethod
+    def _optional_qdate_to_date(value: QDate) -> date | None:
+        if value == QDate(1900, 1, 1):
+            return None
+        return date(value.year(), value.month(), value.day())
+
     def _search_staff(self) -> None:
+        self._load_staff_context(show_not_found=True)
+
+    def open_employee(self, personal_number: str) -> None:
+        self.staff_search_input.setText(personal_number)
         self._load_staff_context(show_not_found=True)
 
     def _load_staff_context(self, show_not_found: bool = False) -> bool:
@@ -220,6 +312,7 @@ class PostingsTransfersPage(QWidget):
         self.current_posting = current
         self._render_current_posting(current)
         self._render_history(history)
+        self._load_employee_summary(self.selected_staff_id)
         return True
 
     def _clear_staff_context(self) -> None:
@@ -228,38 +321,103 @@ class PostingsTransfersPage(QWidget):
         self.staff_status.setText("No staff selected")
         self._render_current_posting(None)
         self._render_history([])
+        self.employee_summary.clear()
 
     def _render_current_posting(self, posting: dict | None) -> None:
         if posting is None:
             self.current_station_display.setText("No current posting")
+            self.current_designation_display.clear()
+            self.current_bps_display.clear()
             self.current_start_display.clear()
             self.current_end_display.clear()
+            self.current_order_display.clear()
             return
 
         self.current_station_display.setText(posting.get("station_name") or "")
+        self.current_designation_display.setText(posting.get("to_designation") or "")
+        bps = posting.get("to_bps")
+        self.current_bps_display.setText("" if bps is None else str(bps))
         self.current_start_display.setText(format_date(posting.get("start_date")))
         self.current_end_display.setText(format_date(posting.get("end_date")))
+        self.current_order_display.setText(posting.get("order_number") or "")
 
     def _render_history(self, history: list[dict]) -> None:
         self.history_table.setRowCount(len(history))
         for row, posting in enumerate(history):
             values = [
                 posting.get("id"),
+                posting.get("movement_type"),
                 posting.get("station_name"),
                 format_date(posting.get("start_date")),
                 format_date(posting.get("end_date")),
+                posting.get("order_number"),
+                posting.get("status"),
                 "Yes" if posting.get("is_current") else "No",
                 posting.get("transfer_reason"),
                 posting.get("remarks"),
             ]
             for column, value in enumerate(values):
-                text = "" if value is None else str(value)
-                item = QTableWidgetItem(text)
-                if text:
-                    item.setToolTip(text)
-                if column == 0:
-                    item.setData(Qt.ItemDataRole.UserRole, posting)
+                item = make_table_item(
+                    value,
+                    user_data=posting if column == 0 else None,
+                )
                 self.history_table.setItem(row, column, item)
+
+    def _load_selected_row_summary(self) -> None:
+        row = self.history_table.currentRow()
+        if row < 0:
+            self.employee_summary.clear()
+            return
+        item = self.history_table.item(row, 0)
+        posting = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+        staff_id = (posting or {}).get("staff_id") or self.selected_staff_id
+        self._load_employee_summary(staff_id)
+
+    def _load_employee_summary(self, staff_id: int | None) -> None:
+        if staff_id is None:
+            self.employee_summary.clear()
+            return
+
+        ok, _message, employee = self.lookup_controller.by_staff_id(staff_id)
+        if ok:
+            self.employee_summary.set_summary(employee)
+        else:
+            self.employee_summary.clear()
+
+    def _open_quick_view_for_row(self, *_args) -> None:
+        row = self.history_table.currentRow()
+        if row < 0:
+            return
+        item = self.history_table.item(row, 0)
+        posting = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+        staff_id = (posting or {}).get("staff_id") or self.selected_staff_id
+        if staff_id is None:
+            return
+
+        ok, message, employee = self.lookup_controller.by_staff_id(staff_id)
+        if not ok or employee is None:
+            show_error(self, message, "Employee Quick View")
+            return
+        self._show_employee_quick_view(employee)
+
+    def _show_employee_quick_view(self, employee: dict) -> None:
+        dialog = EmployeeQuickViewDialog(employee, self)
+        dialog.open_full_profile_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "profile", personal_number
+            )
+        )
+        dialog.open_service_history_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "service", personal_number
+            )
+        )
+        dialog.open_posting_history_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "posting", personal_number
+            )
+        )
+        dialog.exec()
 
     def _add_first_posting(self) -> None:
         if self.selected_staff_id is None:
@@ -272,6 +430,11 @@ class PostingsTransfersPage(QWidget):
             "staff_id": self.selected_staff_id,
             "station_name": self.first_station_input.text(),
             "start_date": self._qdate_to_date(self.first_start_date_input.date()),
+            "order_number": self.first_order_number_input.text(),
+            "order_date": self._optional_qdate_to_date(
+                self.first_order_date_input.date()
+            ),
+            "issuing_authority": self.first_issuing_authority_input.text(),
             "transfer_reason": self.first_reason_input.toPlainText(),
             "remarks": self.first_remarks_input.toPlainText(),
         }
@@ -282,6 +445,9 @@ class PostingsTransfersPage(QWidget):
 
         show_info(self, message)
         self.first_station_input.clear()
+        self.first_order_number_input.clear()
+        self.first_order_date_input.setDate(QDate(1900, 1, 1))
+        self.first_issuing_authority_input.clear()
         self.first_reason_input.clear()
         self.first_remarks_input.clear()
         self._load_staff_context()
@@ -309,6 +475,22 @@ class PostingsTransfersPage(QWidget):
             "staff_id": self.selected_staff_id,
             "new_station": self.new_station_input.text(),
             "transfer_date": self._qdate_to_date(self.transfer_date_input.date()),
+            "order_number": self.transfer_order_number_input.text(),
+            "order_date": self._optional_qdate_to_date(
+                self.transfer_order_date_input.date()
+            ),
+            "issuing_authority": self.transfer_issuing_authority_input.text(),
+            "relieving_date": self._optional_qdate_to_date(
+                self.relieving_date_input.date()
+            ),
+            "joining_date": self._optional_qdate_to_date(
+                self.joining_date_input.date()
+            ),
+            "charge_assumed_date": self._optional_qdate_to_date(
+                self.charge_assumed_date_input.date()
+            ),
+            "transfer_category": self.transfer_category_input.currentText(),
+            "status": self.transfer_status_input.currentText(),
             "transfer_reason": self.transfer_reason_input.toPlainText(),
             "remarks": self.transfer_remarks_input.toPlainText(),
         }
@@ -319,6 +501,14 @@ class PostingsTransfersPage(QWidget):
 
         show_info(self, message)
         self.new_station_input.clear()
+        self.transfer_order_number_input.clear()
+        self.transfer_order_date_input.setDate(QDate(1900, 1, 1))
+        self.transfer_issuing_authority_input.clear()
+        self.relieving_date_input.setDate(QDate(1900, 1, 1))
+        self.joining_date_input.setDate(QDate(1900, 1, 1))
+        self.charge_assumed_date_input.setDate(QDate(1900, 1, 1))
+        self.transfer_category_input.setCurrentIndex(0)
+        self.transfer_status_input.setCurrentText("Completed")
         self.transfer_reason_input.clear()
         self.transfer_remarks_input.clear()
         self._load_staff_context()

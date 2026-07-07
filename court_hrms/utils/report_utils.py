@@ -5,6 +5,8 @@ from datetime import date, datetime
 from html import escape
 from pathlib import Path
 
+from court_hrms.utils.datetime_utils import format_pakistan_datetime
+
 
 FILENAME_SAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
 
@@ -25,7 +27,7 @@ def report_date(value) -> str:
     if value is None:
         return "—"
     if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d %H:%M")
+        return format_pakistan_datetime(value, empty="—")
     if isinstance(value, date):
         return value.strftime("%Y-%m-%d")
     return escape(str(value))

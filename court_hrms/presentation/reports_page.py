@@ -23,9 +23,13 @@ from PySide6.QtWidgets import (
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter, QPrinterInfo
 
 from court_hrms.controllers.report_controller import (
+    REPORT_EMPLOYEE_DOSSIER,
     REPORT_INDIVIDUAL_PROFILE,
     REPORT_LEAVE_HISTORY,
+    REPORT_POSTING_HISTORY,
     REPORT_SENIORITY_LIST,
+    REPORT_SERVICE_BOOK,
+    REPORT_TRANSFER_HISTORY,
     ReportController,
 )
 from court_hrms.presentation.report_preview_dialog import ReportPreviewDialog
@@ -63,10 +67,22 @@ class ReportsPage(QWidget):
         self.profile_radio = QRadioButton("Individual Staff Profile")
         self.leave_radio = QRadioButton("Leave History")
         self.seniority_radio = QRadioButton("Seniority List")
+        self.posting_radio = QRadioButton("Posting History")
+        self.transfer_radio = QRadioButton("Transfer History")
+        self.service_book_radio = QRadioButton("Service Book")
+        self.dossier_radio = QRadioButton("Employee Dossier")
         self.profile_radio.setChecked(True)
 
         for index, radio in enumerate(
-            [self.profile_radio, self.leave_radio, self.seniority_radio]
+            [
+                self.profile_radio,
+                self.leave_radio,
+                self.seniority_radio,
+                self.posting_radio,
+                self.transfer_radio,
+                self.service_book_radio,
+                self.dossier_radio,
+            ]
         ):
             self.report_group.addButton(radio, index)
             selector_layout.addWidget(radio)
@@ -158,17 +174,25 @@ class ReportsPage(QWidget):
         return group
 
     def _handle_report_type_changed(self, index: int) -> None:
-        self.filter_stack.setCurrentIndex(index)
+        self.filter_stack.setCurrentIndex(index if index in (0, 1, 2) else 0)
         self.last_report = None
         self._update_action_state()
 
     def _current_report_type(self) -> str:
-        index = self.filter_stack.currentIndex()
+        index = self.report_group.checkedId()
         if index == 0:
             return REPORT_INDIVIDUAL_PROFILE
         if index == 1:
             return REPORT_LEAVE_HISTORY
-        return REPORT_SENIORITY_LIST
+        if index == 2:
+            return REPORT_SENIORITY_LIST
+        if index == 3:
+            return REPORT_POSTING_HISTORY
+        if index == 4:
+            return REPORT_TRANSFER_HISTORY
+        if index == 5:
+            return REPORT_SERVICE_BOOK
+        return REPORT_EMPLOYEE_DOSSIER
 
     def _current_filters(self) -> dict:
         report_type = self._current_report_type()
@@ -179,11 +203,24 @@ class ReportsPage(QWidget):
                 "personal_number": self.leave_personal_input.text(),
                 "leave_year": self.leave_year_input.currentText(),
             }
+        if report_type in {
+            REPORT_POSTING_HISTORY,
+            REPORT_TRANSFER_HISTORY,
+            REPORT_SERVICE_BOOK,
+            REPORT_EMPLOYEE_DOSSIER,
+        }:
+            return {"personal_number": self.profile_personal_input.text()}
         return {"designation": self.seniority_designation_input.currentText()}
 
     def _filters_valid(self) -> bool:
         report_type = self._current_report_type()
-        if report_type == REPORT_INDIVIDUAL_PROFILE:
+        if report_type in {
+            REPORT_INDIVIDUAL_PROFILE,
+            REPORT_POSTING_HISTORY,
+            REPORT_TRANSFER_HISTORY,
+            REPORT_SERVICE_BOOK,
+            REPORT_EMPLOYEE_DOSSIER,
+        }:
             return bool(self.profile_personal_input.text().strip())
         if report_type == REPORT_LEAVE_HISTORY:
             return bool(self.leave_personal_input.text().strip())

@@ -1,19 +1,23 @@
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
 from court_hrms.database.db import session_scope
 from court_hrms.reporting.report_document_builder import ReportDocumentBuilder
 from court_hrms.reporting.report_templates import (
+    build_employee_dossier_html,
     build_individual_profile_html,
     build_leave_history_html,
+    build_posting_history_html,
     build_seniority_list_html,
+    build_service_book_extract_html,
+    build_transfer_history_html,
 )
 from court_hrms.services.report_service import ReportService
 from court_hrms.services.seniority_service import SeniorityService
 from court_hrms.utils.app_logger import get_logger
 from court_hrms.utils.exceptions import ReportGenerationError
+from court_hrms.utils.datetime_utils import pakistan_date_suffix
 from court_hrms.utils.report_utils import sanitize_filename
 from court_hrms.utils.validators import ValidationError
 
@@ -21,6 +25,10 @@ from court_hrms.utils.validators import ValidationError
 REPORT_INDIVIDUAL_PROFILE = "individual_profile"
 REPORT_LEAVE_HISTORY = "leave_history"
 REPORT_SENIORITY_LIST = "seniority_list"
+REPORT_POSTING_HISTORY = "posting_history"
+REPORT_TRANSFER_HISTORY = "transfer_history"
+REPORT_SERVICE_BOOK = "service_book_extract"
+REPORT_EMPLOYEE_DOSSIER = "employee_dossier"
 
 
 class ReportController:
@@ -55,6 +63,36 @@ class ReportController:
                     html = build_seniority_list_html(dto)
                     filename = self._seniority_filename(dto.designation)
                     title = "Seniority List"
+                elif report_type == REPORT_POSTING_HISTORY:
+                    dto = service.posting_history(filters.get("personal_number", ""))
+                    html = build_posting_history_html(dto)
+                    filename = self._employee_report_filename(
+                        "Posting_History", dto.staff.get("personal_number")
+                    )
+                    title = "Complete Posting History"
+                elif report_type == REPORT_TRANSFER_HISTORY:
+                    dto = service.transfer_history(filters.get("personal_number", ""))
+                    html = build_transfer_history_html(dto)
+                    filename = self._employee_report_filename(
+                        "Transfer_History", dto.staff.get("personal_number")
+                    )
+                    title = "Complete Transfer History"
+                elif report_type == REPORT_SERVICE_BOOK:
+                    dto = service.service_book_extract(
+                        filters.get("personal_number", "")
+                    )
+                    html = build_service_book_extract_html(dto)
+                    filename = self._employee_report_filename(
+                        "Service_Book", dto.staff.get("personal_number")
+                    )
+                    title = "Service Book Extract"
+                elif report_type == REPORT_EMPLOYEE_DOSSIER:
+                    dto = service.employee_dossier(filters.get("personal_number", ""))
+                    html = build_employee_dossier_html(dto)
+                    filename = self._employee_report_filename(
+                        "Employee_Dossier", dto.profile.staff.get("personal_number")
+                    )
+                    title = "Complete Employee Dossier"
                 else:
                     return False, "Report type is not valid.", None
 
@@ -97,7 +135,7 @@ class ReportController:
 
     @staticmethod
     def _date_suffix() -> str:
-        return datetime.now().strftime("%Y%m%d")
+        return pakistan_date_suffix()
 
     def _profile_filename(self, personal_number: str | None) -> str:
         return sanitize_filename(
@@ -114,3 +152,10 @@ class ReportController:
 
     def _seniority_filename(self, designation: str) -> str:
         return sanitize_filename(f"Seniority_{designation}_{self._date_suffix()}.pdf")
+
+    def _employee_report_filename(
+        self, prefix: str, personal_number: str | None
+    ) -> str:
+        return sanitize_filename(
+            f"{prefix}_{personal_number or 'Unknown'}_{self._date_suffix()}.pdf"
+        )

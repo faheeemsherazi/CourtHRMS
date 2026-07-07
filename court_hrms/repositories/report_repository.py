@@ -6,10 +6,13 @@ from court_hrms.repositories.leave_repository import LeaveRepository
 from court_hrms.repositories.posting_repository import PostingRepository
 from court_hrms.repositories.service_record_repository import ServiceRecordRepository
 from court_hrms.repositories.staff_repository import StaffRepository
+from court_hrms.models.service_event import ServiceEvent
+from sqlalchemy import select
 
 
 class ReportRepository:
     def __init__(self, session: Session):
+        self.session = session
         self.staff_repository = StaffRepository(session)
         self.service_record_repository = ServiceRecordRepository(session)
         self.posting_repository = PostingRepository(session)
@@ -23,6 +26,17 @@ class ReportRepository:
 
     def posting_history(self, staff_id: int):
         return self.posting_repository.history_for_staff(staff_id)
+
+    def service_record_history(self, staff_id: int):
+        return self.service_record_repository.list_for_staff(staff_id)
+
+    def service_event_history(self, staff_id: int):
+        stmt = (
+            select(ServiceEvent)
+            .where(ServiceEvent.staff_id == staff_id)
+            .order_by(ServiceEvent.effective_date.asc(), ServiceEvent.id.asc())
+        )
+        return list(self.session.execute(stmt).scalars().all())
 
     def leave_accounts(self, staff_id: int):
         return self.leave_repository.list_accounts_for_staff(staff_id)

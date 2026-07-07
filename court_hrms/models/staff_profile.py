@@ -29,6 +29,31 @@ class StaffProfile(Base):
     emergency_contact = Column(String)
     qualification = Column(String)
     date_of_retirement = Column(Date)
+    employee_photo_path = Column(Text)
+    employee_category = Column(String)
+    cadre = Column(String)
+    appointment_quota = Column(String)
+    appointment_mode = Column(String)
+    nationality = Column(String)
+    blood_group = Column(String)
+    identification_mark = Column(Text)
+    next_of_kin_name = Column(String)
+    next_of_kin_relation = Column(String)
+    next_of_kin_contact = Column(String)
+    service_book_number = Column(String, index=True)
+    service_book_volume = Column(String)
+    service_book_page = Column(String)
+    gp_fund_number = Column(String, index=True)
+    pension_reference_number = Column(String, index=True)
+    computerized_personnel_number = Column(String, index=True)
+    date_of_joining_government_service = Column(Date)
+    date_of_joining_district_judiciary = Column(Date)
+    confirmation_date = Column(Date)
+    regularization_date = Column(Date)
+    probation_end_date = Column(Date)
+    retirement_type = Column(String)
+    actual_retirement_date = Column(Date)
+    record_status = Column(String)
     created_at = Column(DateTime, default=utc_now, nullable=False)
     updated_at = Column(
         DateTime,
@@ -57,6 +82,16 @@ class StaffProfile(Base):
         back_populates="staff",
         passive_deletes=True,
     )
+    official_documents = relationship(
+        "OfficialDocument",
+        back_populates="staff",
+        passive_deletes=True,
+    )
+    service_events = relationship(
+        "ServiceEvent",
+        back_populates="staff",
+        passive_deletes=True,
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -79,6 +114,35 @@ class StaffProfile(Base):
             "emergency_contact": self.emergency_contact,
             "qualification": self.qualification,
             "date_of_retirement": self.date_of_retirement,
+            "employee_photo_path": self.employee_photo_path,
+            "employee_category": self.employee_category,
+            "cadre": self.cadre,
+            "appointment_quota": self.appointment_quota,
+            "appointment_mode": self.appointment_mode,
+            "nationality": self.nationality,
+            "blood_group": self.blood_group,
+            "identification_mark": self.identification_mark,
+            "next_of_kin_name": self.next_of_kin_name,
+            "next_of_kin_relation": self.next_of_kin_relation,
+            "next_of_kin_contact": self.next_of_kin_contact,
+            "service_book_number": self.service_book_number,
+            "service_book_volume": self.service_book_volume,
+            "service_book_page": self.service_book_page,
+            "gp_fund_number": self.gp_fund_number,
+            "pension_reference_number": self.pension_reference_number,
+            "computerized_personnel_number": self.computerized_personnel_number,
+            "date_of_joining_government_service": (
+                self.date_of_joining_government_service
+            ),
+            "date_of_joining_district_judiciary": (
+                self.date_of_joining_district_judiciary
+            ),
+            "confirmation_date": self.confirmation_date,
+            "regularization_date": self.regularization_date,
+            "probation_end_date": self.probation_end_date,
+            "retirement_type": self.retirement_type,
+            "actual_retirement_date": self.actual_retirement_date,
+            "record_status": self.record_status,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -88,3 +152,5 @@ class StaffProfile(Base):
 # even when this model module is imported directly by tests or scripts.
 from court_hrms.models.annual_leave_account import AnnualLeaveAccount  # noqa: E402,F401
 from court_hrms.models.leave_record import LeaveRecord  # noqa: E402,F401
+from court_hrms.models.official_document import OfficialDocument  # noqa: E402,F401
+from court_hrms.models.service_event import ServiceEvent  # noqa: E402,F401

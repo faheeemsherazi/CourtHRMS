@@ -49,13 +49,19 @@ class SeniorityRepository:
                 StaffProfile.personal_number,
                 StaffProfile.full_name,
                 StaffProfile.father_name,
+                StaffProfile.qualification,
                 StaffProfile.date_of_birth,
+                StaffProfile.date_of_retirement,
+                StaffProfile.date_of_joining_government_service,
+                StaffProfile.date_of_joining_district_judiciary,
                 ServiceRecord.designation,
                 ServiceRecord.bps,
                 ServiceRecord.date_first_appointment,
                 ServiceRecord.date_current_promotion,
                 ServiceRecord.selection_merit_number,
+                ServiceRecord.remarks,
                 PostingTransfer.station_name,
+                PostingTransfer.start_date,
             )
             .join(latest_service, latest_service.c.staff_id == StaffProfile.id)
             .join(ServiceRecord, ServiceRecord.id == latest_service.c.service_record_id)
@@ -85,6 +91,18 @@ class SeniorityRepository:
                     selection_merit_number=row.selection_merit_number,
                     date_of_birth=row.date_of_birth,
                     current_posting=row.station_name,
+                    qualification=row.qualification,
+                    first_government_entry=(
+                        row.date_of_joining_government_service
+                        or row.date_first_appointment
+                    ),
+                    first_judiciary_entry=(
+                        row.date_of_joining_district_judiciary
+                        or row.date_first_appointment
+                    ),
+                    current_post_date=row.start_date,
+                    retirement_date=row.date_of_retirement,
+                    remarks=row.remarks,
                 )
             )
         return candidates

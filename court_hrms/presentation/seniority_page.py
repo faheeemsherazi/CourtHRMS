@@ -2,31 +2,40 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
     QFrame,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QPushButton,
     QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from court_hrms.controllers.employee_lookup_controller import EmployeeLookupController
 from court_hrms.controllers.seniority_controller import SeniorityController
+from court_hrms.presentation.employee_quick_view_dialog import EmployeeQuickViewDialog
+from court_hrms.presentation.table_utils import (
+    EmployeeSummaryPanel,
+    configure_professional_table,
+    make_table_item,
+)
 from court_hrms.utils.date_utils import format_date
+from court_hrms.utils.datetime_utils import format_pakistan_datetime
 from court_hrms.utils.message_box import show_error, show_info
 
 
 class SeniorityPage(QWidget):
+    employee_navigation_requested = Signal(str, str)
+
     def __init__(self, controller: SeniorityController):
         super().__init__()
         self.controller = controller
+        self.lookup_controller = EmployeeLookupController()
         self.last_result: dict | None = None
         self._build_ui()
         self.refresh()
@@ -90,21 +99,28 @@ class SeniorityPage(QWidget):
         self.empty_label.setVisible(False)
         layout.addWidget(self.empty_label)
 
+        self.employee_summary = EmployeeSummaryPanel()
+        layout.addWidget(self.employee_summary)
+
         self.table = QTableWidget()
-        self.table.setColumnCount(11)
+        self.table.setColumnCount(15)
         self.table.setHorizontalHeaderLabels(
             [
                 "Rank",
                 "Personal Number",
-                "Staff Name",
+                "Full Name",
                 "Father's Name",
+                "Qualification",
                 "Designation",
                 "BPS",
-                "First Appointment",
-                "Current Promotion",
-                "Merit Number",
                 "Date of Birth",
+                "First Entry in Government Service",
+                "First Entry in Judiciary",
+                "Current Post Date",
+                "Promotion Date",
+                "Retirement Date",
                 "Current Posting",
+                "Remarks",
             ]
         )
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -112,11 +128,10 @@ class SeniorityPage(QWidget):
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setSortingEnabled(False)
         self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
-        self.table.setAlternatingRowColors(True)
+        configure_professional_table(self.table, settings_key="seniority_list_register")
         self.table.setMinimumHeight(260)
+        self.table.itemSelectionChanged.connect(self._load_selected_row_summary)
+        self.table.itemDoubleClicked.connect(self._open_quick_view_for_row)
         layout.addWidget(self.table, 1)
 
         self.exclusions_group = QGroupBox("Excluded Records")
@@ -130,7 +145,7 @@ class SeniorityPage(QWidget):
         self.exclusions_table = QTableWidget()
         self.exclusions_table.setColumnCount(4)
         self.exclusions_table.setHorizontalHeaderLabels(
-            ["Personal Number", "Staff Name", "Designation", "Missing Field"]
+            ["Personal Number", "Full Name", "Designation", "Missing Field"]
         )
         self.exclusions_table.setEditTriggers(
             QAbstractItemView.EditTrigger.NoEditTriggers
@@ -139,10 +154,9 @@ class SeniorityPage(QWidget):
             QAbstractItemView.SelectionBehavior.SelectRows
         )
         self.exclusions_table.verticalHeader().setVisible(False)
-        self.exclusions_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
+        configure_professional_table(
+            self.exclusions_table, settings_key="seniority_exclusions"
         )
-        self.exclusions_table.setAlternatingRowColors(True)
         self.exclusions_table.setMinimumHeight(120)
         exclusions_layout.addWidget(self.exclusions_table)
         self.exclusions_group.setVisible(False)
@@ -171,7 +185,7 @@ class SeniorityPage(QWidget):
         if value is None:
             return ""
         if isinstance(value, datetime):
-            return value.strftime("%Y-%m-%d %H:%M")
+            return format_pakistan_datetime(value)
         return str(value)
 
     def _generate(self) -> None:
@@ -212,20 +226,29 @@ class SeniorityPage(QWidget):
                 row.get("personal_number"),
                 row.get("full_name"),
                 row.get("father_name"),
+                row.get("qualification"),
                 row.get("designation"),
                 row.get("bps"),
-                format_date(row.get("date_first_appointment")),
-                format_date(row.get("date_current_promotion")),
-                row.get("selection_merit_number"),
                 format_date(row.get("date_of_birth")),
+                format_date(row.get("first_government_entry")),
+                format_date(row.get("first_judiciary_entry")),
+                format_date(row.get("current_post_date")),
+                format_date(row.get("promotion_date")),
+                format_date(row.get("retirement_date")),
                 row.get("current_posting"),
+                row.get("remarks"),
             ]
             for column, value in enumerate(values):
-                text = "" if value is None else str(value)
-                item = QTableWidgetItem(text)
-                if text:
-                    item.setToolTip(text)
-                if column in (0, 5, 8):
+                item = make_table_item(
+                    value,
+                    user_data=row if column == 0 else None,
+                    alignment=(
+                        Qt.AlignmentFlag.AlignCenter
+                        if column in (0, 6)
+                        else Qt.AlignmentFlag.AlignLeft
+                    ),
+                )
+                if column in (0, 6):
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.table.setItem(row_index, column, item)
 
@@ -243,8 +266,66 @@ class SeniorityPage(QWidget):
                 self.exclusions_table.setItem(
                     row_index,
                     column,
-                    QTableWidgetItem("" if value is None else str(value)),
+                    make_table_item(value),
                 )
+
+    def _load_selected_row_summary(self) -> None:
+        row = self.table.currentRow()
+        if row < 0:
+            self.employee_summary.clear()
+            return
+        item = self.table.item(row, 0)
+        if item is None:
+            self.employee_summary.clear()
+            return
+        rank_row = item.data(Qt.ItemDataRole.UserRole)
+        staff_id = rank_row.get("staff_id") if rank_row else None
+        if staff_id is None:
+            self.employee_summary.clear()
+            return
+
+        ok, _message, employee = self.lookup_controller.by_staff_id(staff_id)
+        if ok:
+            self.employee_summary.set_summary(employee)
+        else:
+            self.employee_summary.clear()
+
+    def _open_quick_view_for_row(self, *_args) -> None:
+        row = self.table.currentRow()
+        if row < 0:
+            return
+        item = self.table.item(row, 0)
+        if item is None:
+            return
+        rank_row = item.data(Qt.ItemDataRole.UserRole)
+        staff_id = rank_row.get("staff_id") if rank_row else None
+        if staff_id is None:
+            return
+
+        ok, message, employee = self.lookup_controller.by_staff_id(staff_id)
+        if not ok or employee is None:
+            show_error(self, message, "Employee Quick View")
+            return
+        self._show_employee_quick_view(employee)
+
+    def _show_employee_quick_view(self, employee: dict) -> None:
+        dialog = EmployeeQuickViewDialog(employee, self)
+        dialog.open_full_profile_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "profile", personal_number
+            )
+        )
+        dialog.open_service_history_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "service", personal_number
+            )
+        )
+        dialog.open_posting_history_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "posting", personal_number
+            )
+        )
+        dialog.exec()
 
     def _clear(self) -> None:
         self.last_result = None
@@ -254,6 +335,7 @@ class SeniorityPage(QWidget):
         self.exclusions_table.setRowCount(0)
         self.exclusions_group.setVisible(False)
         self.empty_label.setVisible(False)
+        self.employee_summary.clear()
 
     def refresh(self) -> None:
         current = self.designation_input.currentText()

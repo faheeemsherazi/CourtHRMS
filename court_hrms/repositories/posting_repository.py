@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -40,6 +42,26 @@ class PostingRepository:
             .order_by(PostingTransfer.start_date.desc(), PostingTransfer.id.desc())
         )
         return list(self.session.execute(stmt).scalars().all())
+
+    def order_reference_exists(
+        self,
+        *,
+        order_number: str,
+        issuing_authority: str,
+        order_year: int,
+        exclude_id: int | None = None,
+    ) -> bool:
+        year_start = date(order_year, 1, 1)
+        year_end = date(order_year, 12, 31)
+        stmt = select(func.count(PostingTransfer.id)).where(
+            PostingTransfer.order_number == order_number,
+            PostingTransfer.issuing_authority == issuing_authority,
+            PostingTransfer.order_date >= year_start,
+            PostingTransfer.order_date <= year_end,
+        )
+        if exclude_id is not None:
+            stmt = stmt.where(PostingTransfer.id != exclude_id)
+        return int(self.session.execute(stmt).scalar_one()) > 0
 
     def list_all(self) -> list[PostingTransfer]:
         stmt = (

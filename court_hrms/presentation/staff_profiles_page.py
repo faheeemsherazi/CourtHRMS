@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from PySide6.QtCore import QDate, QRegularExpression, Qt
+from PySide6.QtCore import QDate, QRegularExpression, Qt, Signal
 from PySide6.QtGui import QRegularExpressionValidator
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -12,27 +12,35 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QPushButton,
     QScrollArea,
     QTableWidget,
-    QTableWidgetItem,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
+from court_hrms.controllers.employee_lookup_controller import EmployeeLookupController
 from court_hrms.controllers.staff_controller import StaffController
+from court_hrms.presentation.employee_quick_view_dialog import EmployeeQuickViewDialog
+from court_hrms.presentation.table_utils import (
+    EmployeeSummaryPanel,
+    configure_professional_table,
+    make_table_item,
+)
 from court_hrms.utils.date_utils import calculate_retirement_date, format_date
 from court_hrms.utils.message_box import show_error, show_info
 
 
 class StaffProfilesPage(QWidget):
+    employee_navigation_requested = Signal(str, str)
+
     def __init__(self, controller: StaffController):
         super().__init__()
         self.controller = controller
+        self.lookup_controller = EmployeeLookupController()
         self.current_staff_id: int | None = None
         self._build_ui()
         self.refresh()
@@ -191,6 +199,9 @@ class StaffProfilesPage(QWidget):
         table_title.setObjectName("SectionTitle")
         content_layout.addWidget(table_title)
 
+        self.employee_summary = EmployeeSummaryPanel()
+        content_layout.addWidget(self.employee_summary)
+
         self.table = QTableWidget()
         self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels(
@@ -209,13 +220,11 @@ class StaffProfilesPage(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
-        self.table.setAlternatingRowColors(True)
         self.table.setColumnHidden(0, True)
         self.table.setMinimumHeight(260)
+        configure_professional_table(self.table, settings_key="staff_register")
         self.table.itemSelectionChanged.connect(self._load_selected_row)
+        self.table.itemDoubleClicked.connect(self._open_quick_view_for_row)
         content_layout.addWidget(self.table, 1)
 
         scroll.setWidget(content)
@@ -305,6 +314,10 @@ class StaffProfilesPage(QWidget):
             return
         self._load_profile(profile)
 
+    def open_employee(self, personal_number: str) -> None:
+        self.search_input.setText(personal_number)
+        self._search_profile()
+
     def _load_selected_row(self) -> None:
         row = self.table.currentRow()
         if row < 0:
@@ -315,6 +328,7 @@ class StaffProfilesPage(QWidget):
         data = item.data(Qt.ItemDataRole.UserRole)
         if data:
             self._load_profile(data)
+            self._load_employee_summary(data.get("id"))
 
     def _load_profile(self, profile: dict) -> None:
         self.current_staff_id = profile.get("id")
@@ -339,6 +353,53 @@ class StaffProfilesPage(QWidget):
         self.qualification_input.setText(profile.get("qualification") or "")
         self.retirement_preview.setText(format_date(profile.get("date_of_retirement")))
         self.update_button.setEnabled(True)
+        self._load_employee_summary(self.current_staff_id)
+
+    def _load_employee_summary(self, staff_id: int | None) -> None:
+        if staff_id is None:
+            self.employee_summary.clear()
+            return
+
+        ok, _message, employee = self.lookup_controller.by_staff_id(staff_id)
+        if ok:
+            self.employee_summary.set_summary(employee)
+        else:
+            self.employee_summary.clear()
+
+    def _open_quick_view_for_row(self, *_args) -> None:
+        row = self.table.currentRow()
+        if row < 0:
+            return
+        item = self.table.item(row, 0)
+        if item is None:
+            return
+        profile = item.data(Qt.ItemDataRole.UserRole)
+        if not profile:
+            return
+        ok, message, employee = self.lookup_controller.by_staff_id(profile["id"])
+        if not ok or employee is None:
+            show_error(self, message, "Employee Quick View")
+            return
+        self._show_employee_quick_view(employee)
+
+    def _show_employee_quick_view(self, employee: dict) -> None:
+        dialog = EmployeeQuickViewDialog(employee, self)
+        dialog.open_full_profile_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "profile", personal_number
+            )
+        )
+        dialog.open_service_history_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "service", personal_number
+            )
+        )
+        dialog.open_posting_history_requested.connect(
+            lambda personal_number: self.employee_navigation_requested.emit(
+                "posting", personal_number
+            )
+        )
+        dialog.exec()
 
     def clear_form(self) -> None:
         self.current_staff_id = None
@@ -368,6 +429,7 @@ class StaffProfilesPage(QWidget):
         ]:
             combo.setCurrentIndex(0)
         self.table.clearSelection()
+        self.employee_summary.clear()
         self.update_button.setEnabled(False)
         self._update_retirement_preview()
 
@@ -386,10 +448,8 @@ class StaffProfilesPage(QWidget):
                 format_date(profile.get("date_of_retirement")),
             ]
             for column, value in enumerate(values):
-                text = "" if value is None else str(value)
-                item = QTableWidgetItem(text)
-                if text:
-                    item.setToolTip(text)
-                if column == 0:
-                    item.setData(Qt.ItemDataRole.UserRole, profile)
+                item = make_table_item(
+                    value,
+                    user_data=profile if column == 0 else None,
+                )
                 self.table.setItem(row, column, item)

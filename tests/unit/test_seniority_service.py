@@ -177,6 +177,46 @@ class SeniorityServiceTest(unittest.TestCase):
 
         self.assertEqual(self._rank_numbers(candidates), self._rank_numbers(candidates))
 
+    def test_official_register_fields_are_preserved(self) -> None:
+        result = rank_seniority_candidates(
+            "Junior Clerk",
+            [
+                SeniorityCandidate(
+                    staff_id=1,
+                    personal_number="PN-01",
+                    full_name="Syed Muhammad Abdullah Shah Long Official Name",
+                    father_name="Father Name",
+                    designation="Junior Clerk",
+                    bps=9,
+                    date_first_appointment=date(2010, 1, 1),
+                    date_current_promotion=date(2020, 1, 1),
+                    selection_merit_number=1,
+                    date_of_birth=date(1980, 1, 1),
+                    current_posting="District Court Orakzai",
+                    qualification="BA",
+                    first_government_entry=date(2009, 1, 1),
+                    first_judiciary_entry=date(2010, 1, 1),
+                    current_post_date=date(2022, 1, 1),
+                    retirement_date=date(2040, 1, 1),
+                    remarks="No remarks",
+                )
+            ],
+            datetime(2026, 1, 1, 10, 0, 0),
+        )
+
+        row = result.ranked[0].to_dict()
+
+        self.assertEqual(
+            row["full_name"], "Syed Muhammad Abdullah Shah Long Official Name"
+        )
+        self.assertEqual(row["qualification"], "BA")
+        self.assertEqual(row["first_government_entry"], date(2009, 1, 1))
+        self.assertEqual(row["first_judiciary_entry"], date(2010, 1, 1))
+        self.assertEqual(row["current_post_date"], date(2022, 1, 1))
+        self.assertEqual(row["promotion_date"], date(2020, 1, 1))
+        self.assertEqual(row["retirement_date"], date(2040, 1, 1))
+        self.assertEqual(row["remarks"], "No remarks")
+
 
 class SeniorityRepositoryFilteringTest(unittest.TestCase):
     def setUp(self) -> None:

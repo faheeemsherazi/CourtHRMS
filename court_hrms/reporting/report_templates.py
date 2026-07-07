@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from court_hrms.reporting.report_dtos import (
+    EmployeeDossierReport,
     IndividualProfileReport,
     LeaveHistoryReport,
+    PostingHistoryReport,
     SeniorityListReport,
+    ServiceBookExtractReport,
+    TransferHistoryReport,
 )
 from court_hrms.utils.report_utils import report_date, safe_text
 
@@ -208,14 +212,19 @@ def build_seniority_list_html(report: SeniorityListReport) -> str:
     [
         "Rank",
         "Personal Number",
-        "Staff Name",
+        "Full Name",
         "Father's Name",
+        "Qualification",
+        "Designation",
         "BPS",
-        "First Appointment",
-        "Current Promotion",
-        "Merit Number",
         "Date of Birth",
+        "First Entry in Government Service",
+        "First Entry in Judiciary",
+        "Current Post Date",
+        "Promotion Date",
+        "Retirement Date",
         "Current Posting",
+        "Remarks",
     ],
     [
         [
@@ -223,15 +232,194 @@ def build_seniority_list_html(report: SeniorityListReport) -> str:
             row.get("personal_number"),
             row.get("full_name"),
             row.get("father_name"),
+            row.get("qualification"),
+            row.get("designation"),
             row.get("bps"),
-            row.get("date_first_appointment"),
-            row.get("date_current_promotion"),
-            row.get("selection_merit_number"),
             row.get("date_of_birth"),
+            row.get("first_government_entry"),
+            row.get("first_judiciary_entry"),
+            row.get("current_post_date"),
+            row.get("promotion_date"),
+            row.get("retirement_date"),
             row.get("current_posting"),
+            row.get("remarks"),
         ]
         for row in report.ranked
     ],
 )}
 """
     return _base_document("Seniority List", report.generated_at, body)
+
+
+def build_posting_history_html(report: PostingHistoryReport) -> str:
+    staff = report.staff
+    service = report.service_record or {}
+    body = f"""
+<h2>Employee Identification</h2>
+{_detail_table([
+    ("Personal Number", staff.get("personal_number")),
+    ("Full Name", staff.get("full_name")),
+    ("Designation", service.get("designation")),
+    ("BPS", service.get("bps")),
+])}
+<h2>Posting History</h2>
+{_posting_table(report.posting_history)}
+"""
+    return _base_document("Complete Posting History", report.generated_at, body)
+
+
+def build_transfer_history_html(report: TransferHistoryReport) -> str:
+    staff = report.staff
+    service = report.service_record or {}
+    body = f"""
+<h2>Employee Identification</h2>
+{_detail_table([
+    ("Personal Number", staff.get("personal_number")),
+    ("Full Name", staff.get("full_name")),
+    ("Designation", service.get("designation")),
+    ("BPS", service.get("bps")),
+])}
+<h2>Transfer History</h2>
+{_posting_table(report.transfer_history)}
+"""
+    return _base_document("Complete Transfer History", report.generated_at, body)
+
+
+def build_service_book_extract_html(report: ServiceBookExtractReport) -> str:
+    staff = report.staff
+    body = f"""
+<h2>Employee Identification</h2>
+{_detail_table([
+    ("Personal Number", staff.get("personal_number")),
+    ("Full Name", staff.get("full_name")),
+    ("Father's Name", staff.get("father_name")),
+    ("Date of Birth", staff.get("date_of_birth")),
+    ("Retirement Date", staff.get("date_of_retirement")),
+])}
+<h2>Service Records</h2>
+{_data_table(
+    ["Designation", "BPS", "Employment Type", "Status", "First Appointment", "Promotion", "Merit", "Remarks"],
+    [
+        [
+            row.get("designation"),
+            row.get("bps"),
+            row.get("employment_type"),
+            row.get("employment_status"),
+            row.get("date_first_appointment"),
+            row.get("date_current_promotion"),
+            row.get("selection_merit_number"),
+            row.get("remarks"),
+        ]
+        for row in report.service_records
+    ],
+)}
+<h2>Service Events</h2>
+{_data_table(
+    ["Date", "Event Type", "Order Number", "Order Date", "Designation", "BPS", "Station", "Description", "Status"],
+    [
+        [
+            row.get("effective_date"),
+            row.get("event_type"),
+            row.get("order_number"),
+            row.get("order_date"),
+            row.get("new_designation") or row.get("previous_designation"),
+            row.get("new_bps") or row.get("previous_bps"),
+            row.get("station"),
+            row.get("description"),
+            "Cancelled" if row.get("is_cancelled") else "Active",
+        ]
+        for row in report.service_events
+    ],
+)}
+<h2>Posting and Transfer History</h2>
+{_posting_table(report.posting_history)}
+"""
+    return _base_document("Service Book Extract", report.generated_at, body)
+
+
+def build_employee_dossier_html(report: EmployeeDossierReport) -> str:
+    profile = build_individual_profile_html(report.profile)
+    service_book = build_service_book_extract_html(report.service_book)
+    body = f"""
+<h2>Dossier Sections</h2>
+<div class="policy">This dossier combines profile, service-book, posting, leave and ledger information available in the HRMS.</div>
+<h2>Profile</h2>
+{profile}
+<h2>Service Book</h2>
+{service_book}
+<h2>Leave History</h2>
+{_data_table(
+    ["Start Date", "End Date", "Days", "Reason", "Recorded Date"],
+    [
+        [
+            row.get("start_date"),
+            row.get("end_date"),
+            row.get("days_availed"),
+            row.get("reason"),
+            row.get("created_at"),
+        ]
+        for row in report.leave_history
+    ],
+)}
+<h2>Leave Ledger</h2>
+{_data_table(
+    ["Date", "Type", "Credit", "Debit", "Balance", "Reference", "Remarks"],
+    [
+        [
+            row.get("entry_date"),
+            row.get("entry_type"),
+            row.get("credit_days"),
+            row.get("debit_days"),
+            row.get("balance_after"),
+            row.get("reference"),
+            row.get("remarks"),
+        ]
+        for row in report.leave_ledger
+    ],
+)}
+"""
+    return _base_document("Complete Employee Dossier", report.generated_at, body)
+
+
+def _posting_table(rows: list[dict]) -> str:
+    return _data_table(
+        [
+            "Serial",
+            "From Station",
+            "To Station",
+            "Movement Type",
+            "Order Number",
+            "Order Date",
+            "Effective Date",
+            "Relieving Date",
+            "Joining Date",
+            "Charge Assumed",
+            "Designation",
+            "BPS",
+            "Issuing Authority",
+            "Reason",
+            "Status",
+            "Remarks",
+        ],
+        [
+            [
+                index,
+                row.get("from_station"),
+                row.get("to_station") or row.get("station_name"),
+                row.get("movement_type"),
+                row.get("order_number"),
+                row.get("order_date"),
+                row.get("effective_date") or row.get("start_date"),
+                row.get("relieving_date"),
+                row.get("joining_date"),
+                row.get("charge_assumed_date"),
+                row.get("to_designation") or row.get("from_designation"),
+                row.get("to_bps") or row.get("from_bps"),
+                row.get("issuing_authority"),
+                row.get("transfer_reason"),
+                row.get("status") or ("Current" if row.get("is_current") else ""),
+                row.get("remarks"),
+            ]
+            for index, row in enumerate(rows, start=1)
+        ],
+    )
